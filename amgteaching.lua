@@ -658,7 +658,7 @@ for myname,myproblem in pairs(problem) do
 		--  Setup Neumann Boundary
 		-----------------------------------------------------------------
 		
-		--neumannDisc = FV1NeumannBoundary("Inner")
+		--neumannDisc = NeumannBoundary("Inner")
 		--neumannDisc:add(neumann, "c", "NeumannBoundary")
 		
 		-----------------------------------------------------------------

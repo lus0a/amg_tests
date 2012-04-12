@@ -177,7 +177,7 @@ elemDisc:set_source(rhs)
 --  Setup Neumann Boundary
 -----------------------------------------------------------------
 
---neumannDisc = FV1NeumannBoundary("Inner")
+--neumannDisc = NeumannBoundary("Inner")
 --neumannDisc:add_boundary_value(neumann, "c", "NeumannBoundary")
 
 -----------------------------------------------------------------
