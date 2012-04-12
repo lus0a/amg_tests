@@ -223,7 +223,6 @@ neumann = LuaCondUserNumber("ourNeumannBnd"..dim.."d")
 
 -- dirichlet setup
 dirichlet = LuaCondUserNumber("ourDirichletBnd"..dim.."d")
---dirichlet = ConstBoundaryNumber(3.2)
 
 -----------------------------------------------------------------
 --  Setup FV Convection-Diffusion Element Discretization
