@@ -152,7 +152,7 @@ end
 		return	fac1*epsx+fac2, 0, 
 				0, fac1+fac2*epsy
 	end
-	anisoDiffTensor2d = LuaUserMatrix("cbAnisoDiffTensor2d")
+--	anisoDiffTensor2d = LuaUserMatrix("cbAnisoDiffTensor2d")
 
 	
 	function CreateRotatedAnisotropyMatrix2d(alpha, epsilon)
@@ -523,7 +523,7 @@ amg:tostring()
 
 -- create Convergence Check
 convCheck = StandardConvergenceCheck()
-convCheck:set_maximum_steps(100)
+convCheck:set_maximum_steps(20)
 convCheck:set_minimum_defect(1e-16)
 convCheck:set_reduction(1e-16)
 
@@ -562,6 +562,7 @@ print("Init solver for operator.")
 	
 	lastReduction = convCheck:defect()/convCheck:previous_defect()
 	steps = convCheck:step()
+	
 
 ---------
 	linSolver = CG()
@@ -588,13 +589,15 @@ print("Init solver for operator.")
 ---------
 if util.HasParamOption("-bCheck") then
 	print("CHECKS:")
+	
 	linSolver = LinearSolver()	
 	linSolver:set_preconditioner(amg)
 	linSolver:set_convergence_check(convCheck)
 	linSolver:init(A)
 	srand(iSeed)
 	u:set_random(-1.0, 1.0)
-	
+	domainDisc:adjust_solution(u)
+	b:assign(b2)
 
 	convCheck:set_maximum_steps(2)
 	linSolver:apply_return_defect(u,b)
@@ -606,7 +609,10 @@ if util.HasParamOption("-bCheck") then
 		amg:write_interfaces()
 	end
 	print("amg:check(u, b)")
-	amg:check(u,b)
+	GetLogAssistant():set_output_process(-1)
+	amg:check(u,b)	
+	GetLogAssistant():set_output_process(util.GetParamNumber("-outproc", 0))
+	
 	print("amg:check_testvector()")
 	--amg:check_testvector()
 	print("amg:check_fsmoothing()")
