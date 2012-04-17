@@ -241,7 +241,10 @@ tBefore = os.clock()
 
 -- create Instance of a Domain
 dom = Domain()
-LoadDomain(dom, gridName)
+if LoadDomain(dom, gridName) == false then
+print("Loading Domain failed.")
+exit()
+end
 
 
 -- create Refiner
@@ -508,7 +511,7 @@ amg:set_base_solver(base)
 amg:set_max_levels(maxLevels)
 
 amg:set_min_nodes_on_one_processor(util.GetParamNumber("-minNodes", 1000))
-amg:set_preferred_nodes_on_one_processor(util.GetParamNumber("-preferredNodes", 1000))
+amg:set_preferred_nodes_on_one_processor(util.GetParamNumber("-preferredNodes", 10000))
 -- amg:set_preferred_nodes_on_one_processor(100000)
 
 amg:set_max_nodes_for_base(maxBase)
@@ -520,7 +523,7 @@ amg:tostring()
 
 -- create Convergence Check
 convCheck = StandardConvergenceCheck()
-convCheck:set_maximum_steps(20)
+convCheck:set_maximum_steps(100)
 convCheck:set_minimum_defect(1e-16)
 convCheck:set_reduction(1e-16)
 
