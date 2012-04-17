@@ -305,10 +305,7 @@ sh:set_subset_name("DirichletBoundary", 1)
 if verbosity >= 1 then
 	refinedGridOutName = "refined_grid_p" .. GetProcessRank() .. ".ugx"
 	print("saving domain to " .. refinedGridOutName)
-	if SaveDomain(dom, refinedGridOutName) == false then
-		print("Saving of domain to " .. refinedGridOutName .. " failed. Aborting.")
-		    exit()
-	end
+	SaveDomain(dom, refinedGridOutName)
 	
 	hierarchyOutName = "hierachy_p" .. GetProcessRank() .. ".ugx"
 	print("saving hierachy to " .. hierarchyOutName)
