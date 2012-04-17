@@ -241,10 +241,7 @@ tBefore = os.clock()
 
 -- create Instance of a Domain
 dom = Domain()
-if LoadDomain(dom, gridName) == false then
-print("Loading Domain failed.")
-exit()
-end
+LoadDomain(dom, gridName)
 
 
 -- create Refiner

@@ -64,11 +64,7 @@ print("Create Domain.")
 dom = Domain()
 
 -- load domain
-print("Load Domain from File.")
-if LoadDomain(dom, gridName) == false then
-print("Loading Domain failed.")
-exit()
-end
+LoadDomain(dom, gridName)
 
 -- get subset handler
 sh = dom:subset_handler()
