@@ -53,7 +53,7 @@ else
 	numPreRefs = util.GetParamNumber("-numPreRefs", math.min(3, numRefs-3))
 end
 
-maxBase = util.GetParamNumber("-maxBase", 1000)
+maxBase = util.GetParamNumber("-maxBase", 600)
 maxLevels = util.GetParamNumber("-maxLevels", 30)
 
 RAepsilon = util.GetParamNumber("-RAepsilon", 1)
@@ -418,8 +418,8 @@ if bRSAMG == false then
 	end
 	
 	amg = FAMGPreconditioner()	
-	amg:set_delta(0.1)
-	amg:set_theta(0.95)
+	amg:set_delta(util.GetParamNumber("-delta", 0.1))
+	amg:set_theta(util.GetParamNumber("-theta", 0.95))
 	amg:set_aggressive_coarsening(bAggressiveCoarsening)
 		
 	-- add testvector which is 1 everywhere and only 0 on the dirichlet Boundary.
@@ -431,7 +431,7 @@ if bRSAMG == false then
 
 	jac2 = Jacobi()
 	jac2:set_damp(0.8)
-	amg:set_testvector_smooths(1)
+	amg:set_testvector_smooths(4)
 	amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
 	amg:set_testvector_smoother(jac2)
 		
@@ -474,7 +474,8 @@ if bRSAMG == false then
 	end
 	
 	
-	amg:set_nr_of_preiterations_at_check(5)	
+	amg:set_nr_of_preiterations_at_check(10)
+	amg:set_preiterations_mimum_defect_at_check(1e-10)	
 else
 	print ("create AMG... ")
 	amg = RSAMGPreconditioner()
@@ -492,7 +493,7 @@ vectorWriter = GridFunctionPositionProvider()
 vectorWriter:set_reference_grid_function(u)
 amg:set_position_provider(vectorWriter)
 if bWriteMat then
-amg:set_matrix_write_path("/Users/mrupp/matrices/")
+amg:set_matrix_write_path("/home/rupp4/matrices/")
 end
 
 
@@ -510,8 +511,8 @@ amg:set_postsmoother(postsmoother)
 amg:set_base_solver(base)
 amg:set_max_levels(maxLevels)
 
-amg:set_min_nodes_on_one_processor(util.GetParamNumber("-minNodes", 1000))
-amg:set_preferred_nodes_on_one_processor(util.GetParamNumber("-preferredNodes", 10000))
+amg:set_min_nodes_on_one_processor(util.GetParamNumber("-minNodes", 10))
+amg:set_preferred_nodes_on_one_processor(util.GetParamNumber("-preferredNodes", 10))
 -- amg:set_preferred_nodes_on_one_processor(100000)
 
 amg:set_max_nodes_for_base(maxBase)
@@ -562,9 +563,11 @@ print("Init solver for operator.")
 	
 	lastReduction = convCheck:defect()/convCheck:previous_defect()
 	steps = convCheck:step()
-	
+	solution = GridFunction(approxSpace)
+	solution:assign(u)
 
 ---------
+if false then
 	linSolver = CG()
 	linSolver:set_preconditioner(amg)
 	linSolver:set_convergence_check(convCheck)
@@ -582,10 +585,7 @@ print("Init solver for operator.")
 	
 	lastReductionCG = convCheck:defect()/convCheck:previous_defect()
 	stepsCG = convCheck:step()
-	
-	solution = GridFunction(approxSpace)
-	solution:assign(u)
-
+end
 ---------
 if util.HasParamOption("-bCheck") then
 	print("CHECKS:")
@@ -609,13 +609,12 @@ if util.HasParamOption("-bCheck") then
 		amg:write_interfaces()
 	end
 	print("amg:check(u, b)")
-	GetLogAssistant():set_output_process(-1)
-	amg:check(u,b)	
-	GetLogAssistant():set_output_process(util.GetParamNumber("-outproc", 0))
+	--amg:check(u,b)	
+	--GetLogAssistant():set_output_process(util.GetParamNumber("-outproc", 0))
 	
-	print("amg:check_testvector()")
-	--amg:check_testvector()
-	print("amg:check_fsmoothing()")
+	--print("amg:check_testvector()")
+	amg:check_testvector()
+	--print("amg:check_fsmoothing()")
 	-- amg:check_fsmoothing()
 end	
 	
@@ -707,4 +706,6 @@ if not bCheck and bWriteStats then
 	end	
 end
 
-				
+print("\n")		
+util.PrintArguments()
+util.PrintIgnoredArguments()
