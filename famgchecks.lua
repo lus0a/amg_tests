@@ -11,10 +11,64 @@ SetOutputProfileStats(false)
 ug_load_script("ug_util.lua")
 ug_load_script("util.lua")
 
-GetLogAssistant():set_output_process(util.GetParamNumber("-outproc", 0))
+-- command line parameters
+--------------------------------------------------------------------------------------------------
+
+paramOutputProcess = util.GetParamNumber("-outproc", 0, "Output processor")
+numRefs = util.GetParamNumber("-numRefs", 1, "number of refinements")
+numPreRefs = util.GetParamNumber("-numPreRefs", -1, "number of refinements before ")
+
+
+maxBase = util.GetParamNumber("-maxBase", 600, "maximum number of nodes before base solver is used")
+maxLevels = util.GetParamNumber("-maxLevels", 30, "maximum number of AMG levels")
+
+RAepsilon = util.GetParamNumber("-RAepsilon", 1, "epsilon for rotated anisotropy")
+RAalpha = util.GetParamNumber("-RAalpha", 0, "alpha (degrees) for rotated anisotropy")
+
+epsx = util.GetParamNumber("-epsx", 1, "epsilon in X direction")
+epsy = util.GetParamNumber("-epsy", 1, "epsilon in Y direction")
+
+
+bWriteStats = util.HasParamOption("-bWriteStats", "if true, write stats output")
+bWriteMat = util.HasParamOption("-writeMatrices", "if true, write matrix output")
+bRSAMG = util.HasParamOption("-RSAMG", "if true, use RSAMG, otherwise FAMG") 
+
+bAggressiveCoarsening = util.HasParamOption("-AC", "if true, use aggressive coarsening")
+bExternalCoarsening = util.HasParamOption("-XC", "if true, use external coarsening in FAMG")
+jacBaseSolver = util.HasParamOption("-jacBaseSolver", "if true, use Linear Jacobi as Base Solver")
+
+famgDelta = util.GetParamNumber("-delta", 0.1, "")
+famgTheta = util.GetParamNumber("-theta", 0.95, "")
+
+minNodes = util.GetParamNumber("-minNodes", 10, "minimum number of nodes on one processor (for agglomeration)")
+preferredNodes = util.GetParamNumber("-preferredNodes", 10, "preferred number of nodes on one processor (for agglomeration)")
+
+outdir = util.GetParam("-outdir", "", "output directory")
+b3d = util.HasParamOption("-3d", "if true, 3d, otherwise: 2d")
+ninePoint = util.HasParamOption("-ninePoint", "for 2d: if true, use ninepoint, otherwise 5pt")
+logtofile = util.GetParam("-logtofile", nil, "the file to write logs to")
+bWCycle = util.HasParamOption("-Wcycle", "if true, use W-Cycle, otherwise: V-Cycle.")
+
+iTestvectorSmooths = util.GetParamNumber("-iTestvectorSmooths", 2, "nr of testvector smooth for construction of P")
+bUseJacobi = util.HasParamOption("-bUseJacobi", "if true, use jacobi as smoother. otherwise use gs")
+iSmooths = util.GetParamNumber("-iSmooths", 2, "nr of pre/postsmooths")
+
+--------------------------------------------------------------------------------------------------
+util.CheckAndPrintHelp(
+"FAMG Script by Martin Rupp"
+)
+--------------------------------------------------------------------------------------------------
+
+
+GetLogAssistant():set_output_process(paramOutputProcess)
+
+matrixWritePath=os.getenv("HOME").."/matrices/"
+if bWriteMat and outdir == "" then
+	outdir = matrixWritePath
+end
 
 -- constants
-if util.HasParamOption("-3d") then
+if b3d == true then
 	dim = 3
 else
 	dim = 2
@@ -25,7 +79,7 @@ iSeed = 23
 -- choose dimension and algebra
 InitUG(dim, AlgebraType("CPU", 1));
 
-ninePoint = util.HasParamOption("-ninePoint")
+
 
 if dim == 2 then
 	if ninePoint then
@@ -40,42 +94,31 @@ if dim == 3 then
 end
 
 -- choose number of total Refinements (incl. pre-Refinements)
-numRefs = util.GetParamNumber("-numRefs", 1)
+
 if ninePoint then
 	numRefs = numRefs - 2
-	numPreRefs = util.GetParamNumber("-numPreRefs", math.min(3, numRefs-3))
+	if numPreRefs == -1 then
+		numPreRefs = math.min(3, numRefs-3)
+	end
 end
 
 -- choose number of pre-Refinements (before sending grid onto different processes)
 if dim == 2 then	
-	numPreRefs = util.GetParamNumber("-numPreRefs", math.min(5, numRefs-3))
+	if numPreRefs == -1 then
+		numPreRefs = math.min(5, numRefs-3)
+	end
 else
-	numPreRefs = util.GetParamNumber("-numPreRefs", math.min(3, numRefs-3))
+	if numPreRefs == -1 then
+		numPreRefs = math.min(3, numRefs-3)
+	end
 end
 
-maxBase = util.GetParamNumber("-maxBase", 600)
-maxLevels = util.GetParamNumber("-maxLevels", 30)
-
-RAepsilon = util.GetParamNumber("-RAepsilon", 1)
-RAalpha = util.GetParamNumber("-RAalpha", 0)
-
-epsx = util.GetParamNumber("-epsx", 1)
-epsy = util.GetParamNumber("-epsy", 1)
 
 
-bWriteStats = util.HasParamOption("-bWriteStats")
-bWriteMat = util.HasParamOption("-writeMatrices")
-bRSAMG = util.HasParamOption("-RSAMG") 
-
-bAggressiveCoarsening = util.HasParamOption("-AC")
-bExternalCoarsening = util.HasParamOption("-XC")
-jacBaseSolver = util.HasParamOption("-jacBaseSolver")
-
-
-if util.HasParamOption("-logtofile") then
+if logtofile ~= nil then
 	GetLogAssistant():enable_file_output(false, "")
-	GetLogAssistant():enable_file_output(true, util.GetParam("-logtofile")..GetProcessRank())
-	filename = util.GetParam("-logtofile")
+	GetLogAssistant():enable_file_output(true, logtofile..GetProcessRank())
+	filename = logtofile
 else
 	if dim == 2 then
 		if ninePoint then 
@@ -94,7 +137,7 @@ else
 		filename = filename.."_AC"
 	end
 
-	GetLogAssistant():enable_file_output(true, util.GetParam("-outdir", "")..filename..GetProcessRank())
+	GetLogAssistant():enable_file_output(true, outdir..filename..GetProcessRank())
 end
 
 print("ugshell "..util.GetCommandLine())
@@ -369,7 +412,7 @@ ilu = ILU()
 ilut = ILUT()
 
 
-if false then
+if bUseJacobi then
 	presmoother = jac
 	postsmoother = jac
 else
@@ -417,9 +460,10 @@ if bRSAMG == false then
 		return amgDirichlet0
 	end
 	
-	amg = FAMGPreconditioner()	
-	amg:set_delta(util.GetParamNumber("-delta", 0.1))
-	amg:set_theta(util.GetParamNumber("-theta", 0.95))
+	amg = FAMGPreconditioner()
+	
+	amg:set_delta(famgDelta)
+	amg:set_theta(famgTheta)
 	amg:set_aggressive_coarsening(bAggressiveCoarsening)
 		
 	-- add testvector which is 1 everywhere and only 0 on the dirichlet Boundary.
@@ -431,7 +475,7 @@ if bRSAMG == false then
 
 	jac2 = Jacobi()
 	jac2:set_damp(0.8)
-	amg:set_testvector_smooths(4)
+	amg:set_testvector_smooths(iTestvectorSmooths)
 	amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
 	amg:set_testvector_smoother(jac2)
 		
@@ -493,14 +537,14 @@ vectorWriter = GridFunctionPositionProvider()
 vectorWriter:set_reference_grid_function(u)
 amg:set_position_provider(vectorWriter)
 if bWriteMat then
-amg:set_matrix_write_path("/home/rupp4/matrices/")
+amg:set_matrix_write_path(matrixWritePath)
 end
 
 
 
-amg:set_num_presmooth(2)
-amg:set_num_postsmooth(2)
-if util.HasParamOption("-Wcycle") then
+amg:set_num_presmooth(iSmooths)
+amg:set_num_postsmooth(iSmooths)
+if bWCycle then
 	amg:set_cycle_type(2)
 else
 	amg:set_cycle_type(1)
@@ -511,8 +555,8 @@ amg:set_postsmoother(postsmoother)
 amg:set_base_solver(base)
 amg:set_max_levels(maxLevels)
 
-amg:set_min_nodes_on_one_processor(util.GetParamNumber("-minNodes", 10))
-amg:set_preferred_nodes_on_one_processor(util.GetParamNumber("-preferredNodes", 10))
+amg:set_min_nodes_on_one_processor(minNodes)
+amg:set_preferred_nodes_on_one_processor(preferredNodes)
 -- amg:set_preferred_nodes_on_one_processor(100000)
 
 amg:set_max_nodes_for_base(maxBase)
@@ -666,7 +710,7 @@ if GetProcessRank() == 0 then
 	
 	util.printStats(stats)
 	if bWriteStats  then	
-		util.writeFileStats(stats, util.GetParam("-outdir", "").."stats.txt")
+		util.writeFileStats(stats, outdir.."stats.txt")
 	end
 
 end
