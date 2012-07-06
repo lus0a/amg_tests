@@ -1,10 +1,14 @@
-----------------------------------------------------------
+--------------------------------------------------------------------------------
+--[[!
+-- \file apps/amg/famgchecks.lua
 --
---   Lua - Script to perform the Laplace-Problem
+-- \author Martin Rupp, Andreas Vogel
 --
---   Author: Martin Rupp / Andreas Vogel
+-- \brief Test Script for FAMG
 --
-----------------------------------------------------------
+]]--
+--------------------------------------------------------------------------------
+
 -- ProfileLUA(true)
 SetOutputProfileStats(false)
 
@@ -63,6 +67,7 @@ util.CheckAndPrintHelp(
 GetLogAssistant():set_output_process(paramOutputProcess)
 
 matrixWritePath=os.getenv("HOME").."/matrices/"
+print("Writing matrices to "..matrixWritePath)
 if bWriteMat and outdir == "" then
 	outdir = matrixWritePath
 end
@@ -503,9 +508,9 @@ if bRSAMG == false then
 	-- amg:set_debug_level_coloring(4)
 	-- amg:set_debug_level_communicate_prolongation(4)
 	-- amg:set_debug_level_overlap(4,4)
-	-- amg:set_debug_level_calculate_parent_pairs(4)
-	-- amg:set_debug_level_precalculate_coarsening(4)
 	-- amg:set_debug_level_calculate_parent_pairs(6)
+	-- amg:set_debug_level_calculate_parent_pairs(6)
+	-- amg:set_debug_level_precalculate_coarsening(4)
 	-- amg:set_galerkin_truncation(1e-6)
 	-- amg:set_H_reduce_interpolation_nodes_parameter(0.1)
 	amg:set_galerkin_truncation(1e-9)
