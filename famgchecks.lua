@@ -41,8 +41,8 @@ bAggressiveCoarsening = util.HasParamOption("-AC", "if true, use aggressive coar
 bExternalCoarsening = util.HasParamOption("-XC", "if true, use external coarsening in FAMG")
 jacBaseSolver = util.HasParamOption("-jacBaseSolver", "if true, use Linear Jacobi as Base Solver")
 
-famgDelta = util.GetParamNumber("-delta", 0.1, "")
-famgTheta = util.GetParamNumber("-theta", 0.95, "")
+famgDelta = util.GetParamNumber("-delta", 0.1, "\"Interpolation quality\" F may not be worse than this (F < m_delta)")
+famgTheta = util.GetParamNumber("-theta", 0.9, "with multiple parents, discard pairs with m_theta * F > min F.")
 
 minNodes = util.GetParamNumber("-minNodes", 10, "minimum number of nodes on one processor (for agglomeration)")
 preferredNodes = util.GetParamNumber("-preferredNodes", 10, "preferred number of nodes on one processor (for agglomeration)")
@@ -465,6 +465,28 @@ if bRSAMG == false then
 		return amgDirichlet0
 	end
 	
+	function ourTestvector2d_const(x, y, t)
+		return (1
+	end
+	
+	function ourTestvector2d_1_1(x, y, t)
+		return math.sin(math.pi*x)*math.sin(math.pi*y)
+	end
+	
+	function ourTestvector2d_2_1(x, y, t)
+		return math.sin(2*math.pi*x)*math.sin(math.pi*y)
+	end
+	
+	
+	function ourTestvector2d_1_2(x, y, t)
+		return math.sin(math.pi*x)*math.sin(2*math.pi*y)
+	end
+	
+	
+	function ourTestvector2d_2_2(x, y, t)
+		return math.sin(2*math.pi*x)*math.sin(2*math.pi*y)
+	end
+	
 	amg = FAMGPreconditioner()
 	
 	amg:set_delta(famgDelta)
@@ -524,7 +546,9 @@ if bRSAMG == false then
 	
 	
 	amg:set_nr_of_preiterations_at_check(10)
-	amg:set_preiterations_mimum_defect_at_check(1e-10)	
+	amg:set_preiterations_mimum_defect_at_check(1e-10)
+	-- amg:set_write_coarsening()
+	-- amg:set_read_coarsening()
 else
 	print ("create AMG... ")
 	amg = RSAMGPreconditioner()
