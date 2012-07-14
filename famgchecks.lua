@@ -465,27 +465,6 @@ if bRSAMG == false then
 		return amgDirichlet0
 	end
 	
-	function ourTestvector2d_const(x, y, t)
-		return (1
-	end
-	
-	function ourTestvector2d_1_1(x, y, t)
-		return math.sin(math.pi*x)*math.sin(math.pi*y)
-	end
-	
-	function ourTestvector2d_2_1(x, y, t)
-		return math.sin(2*math.pi*x)*math.sin(math.pi*y)
-	end
-	
-	
-	function ourTestvector2d_1_2(x, y, t)
-		return math.sin(math.pi*x)*math.sin(2*math.pi*y)
-	end
-	
-	
-	function ourTestvector2d_2_2(x, y, t)
-		return math.sin(2*math.pi*x)*math.sin(2*math.pi*y)
-	end
 	
 	amg = FAMGPreconditioner()
 	
