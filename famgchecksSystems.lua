@@ -41,8 +41,8 @@ bAggressiveCoarsening = util.HasParamOption("-AC", "if true, use aggressive coar
 bExternalCoarsening = util.HasParamOption("-XC", "if true, use external coarsening in FAMG")
 jacBaseSolver = util.HasParamOption("-jacBaseSolver", "if true, use Linear Jacobi as Base Solver")
 
-famgDelta = util.GetParamNumber("-delta", 0.1, "")
-famgTheta = util.GetParamNumber("-theta", 0.95, "")
+famgDelta = util.GetParamNumber("-delta", 0.1, "\"Interpolation quality\" F may not be worse than this (F < m_delta)")
+famgTheta = util.GetParamNumber("-theta", 0.9, "with multiple parents, discard pairs with m_theta * F > min F.")
 
 minNodes = util.GetParamNumber("-minNodes", 10, "minimum number of nodes on one processor (for agglomeration)")
 preferredNodes = util.GetParamNumber("-preferredNodes", 10, "preferred number of nodes on one processor (for agglomeration)")
@@ -59,7 +59,7 @@ iSmooths = util.GetParamNumber("-iSmooths", 2, "nr of pre/postsmooths")
 
 numSys = util.GetParamNumber("-numSys", 1, "nr of systems")
 
-gridName = "unit_square/unit_square_quads_8x8.ugx"
+gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_tri_2x2.ugx")
 
 
 --------------------------------------------------------------------------------------------------
@@ -89,7 +89,7 @@ iSeed = 23
 nSystems = numSys
 
 -- choose algebra
-InitUG(dim, AlgebraType("CPU", nSystems))
+InitUG(dim, AlgebraType("CPU", 1))
 
 --------------------------------
 -- User Data Functions (begin)
@@ -137,7 +137,7 @@ print ("Setting up1")
 
 -- Create, Load, Refine and Distribute Domain
 neededSubsets = {"Inner", "Boundary"}
-dom = util.CreateAndDistributeDomain(gridName, numRefs, numPreRefs, neededSubsets)
+dom = util.CreateAndDistributeDomain(gridName, numRefs-1, numPreRefs, neededSubsets)
 
 print ("Setting up2")
 -- create Approximation Space
@@ -333,7 +333,7 @@ if bRSAMG == false then
 	-- amg:set_debug_level_coloring(4)
 	-- amg:set_debug_level_communicate_prolongation(4)
 	-- amg:set_debug_level_overlap(4,4)
-	amg:set_debug_level_calculate_parent_pairs(6)
+	-- amg:set_debug_level_calculate_parent_pairs(6)
 	-- amg:set_debug_level_calculate_parent_pairs(6)
 	-- amg:set_debug_level_precalculate_coarsening(4)
 	-- amg:set_galerkin_truncation(1e-6)
@@ -350,6 +350,7 @@ if bRSAMG == false then
 	
 	amg:set_nr_of_preiterations_at_check(10)
 	amg:set_preiterations_mimum_defect_at_check(1e-10)	
+	-- amg:set_write_coarsening()
 else
 	print ("create AMG... ")
 	amg = RSAMGPreconditioner()
@@ -398,9 +399,9 @@ amg:tostring()
 
 -- create Convergence Check
 convCheck = StandardConvergenceCheck()
-convCheck:set_maximum_steps(100)
-convCheck:set_minimum_defect(1e-16)
-convCheck:set_reduction(1e-16)
+convCheck:set_maximum_steps(20)
+convCheck:set_minimum_defect(1e-30)
+convCheck:set_reduction(1e-30)
 
 print("done.")
 -- create Linear Solver
