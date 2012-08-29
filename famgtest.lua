@@ -287,7 +287,7 @@ ilut = ILUT()
 
 
 -- create Base Solver
-baseConvCheck = StandardConvergenceCheck()
+baseConvCheck = ConvCheck()
 baseConvCheck:set_maximum_steps(500)
 baseConvCheck:set_minimum_defect(1e-16)
 baseConvCheck:set_reduction(1e-16)
@@ -388,7 +388,7 @@ if bUseNestedAMG then
 	amg2:set_fsmoothing(true)
 	amg2:set_epsilon_truncation(0)
 	-- amg2:set_matrix_write_path("/Users/mrupp/matrices/2/")
-	convCheck2 = StandardConvergenceCheck()
+	convCheck2 = ConvCheck()
 	convCheck2:set_maximum_steps(30)
 	convCheck2:set_minimum_defect(1e-11)
 	convCheck2:set_reduction(1e-12)
@@ -413,7 +413,7 @@ amg:tostring()
 
 
 -- create Convergence Check
-convCheck = StandardConvergenceCheck()
+convCheck = ConvCheck()
 convCheck:set_maximum_steps(9)
 convCheck:set_minimum_defect(1e-11)
 convCheck:set_reduction(1e-12)

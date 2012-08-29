@@ -347,7 +347,7 @@ ilut = ILUT()
 -- solvers for alebraically smooth error
 ------------------------------------------
 -- create convergence check (solver)
-convCheckSmoother = StandardConvergenceCheck()
+convCheckSmoother = ConvCheck()
 convCheckSmoother:set_maximum_steps(5)
 convCheckSmoother:set_reduction(1e-12)
 convCheckSmoother:set_minimum_defect(1e-14)
@@ -396,7 +396,7 @@ smoother.post = bgs
 -- create (exact) base solver
 -----------------
 
-baseConvCheck = StandardConvergenceCheck()
+baseConvCheck = ConvCheck()
 baseConvCheck:set_maximum_steps(1000)
 baseConvCheck:set_minimum_defect(1e-11)
 baseConvCheck:set_reduction(1e-30)
@@ -445,7 +445,7 @@ end
 -- real solvers
 ------------------------------------------
 -- create convergence check (solver)
-convCheckSolver = StandardConvergenceCheck()
+convCheckSolver = ConvCheck()
 convCheckSolver:set_maximum_steps(50)
 convCheckSolver:set_minimum_defect(1e-14)
 convCheckSolver:set_reduction(1e-12)

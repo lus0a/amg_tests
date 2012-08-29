@@ -302,7 +302,7 @@ ilut = ILUT()
 
 
 -- create Base Solver
-baseConvCheck = StandardConvergenceCheck()
+baseConvCheck = ConvCheck()
 baseConvCheck:set_maximum_steps(500)
 baseConvCheck:set_minimum_defect(1e-16)
 baseConvCheck:set_reduction(1e-16)
@@ -429,7 +429,7 @@ amg:tostring()
 
 
 -- create Convergence Check
-convCheck = StandardConvergenceCheck()
+convCheck = ConvCheck()
 convCheck:set_maximum_steps(30)
 convCheck:set_minimum_defect(1e-11)
 convCheck:set_reduction(1e-12)

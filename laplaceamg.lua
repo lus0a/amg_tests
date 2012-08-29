@@ -188,7 +188,7 @@ ilu = ILUPreconditioner()
 ilut = ILUTPreconditioner()
 
 -- create GMG
-baseConvCheck = StandardConvergenceCheck()
+baseConvCheck = ConvCheck()
 baseConvCheck:set_maximum_steps(500)
 baseConvCheck:set_minimum_defect(1e-8)
 baseConvCheck:set_reduction(1e-30)
@@ -220,7 +220,7 @@ amg:set_max_levels(5)
 -- amg:set_debug(u)
 
 -- create Convergence Check
-convCheck = StandardConvergenceCheck()
+convCheck = ConvCheck()
 convCheck:set_maximum_steps(3)
 convCheck:set_minimum_defect(1e-9)
 convCheck:set_reduction(1e-9)
