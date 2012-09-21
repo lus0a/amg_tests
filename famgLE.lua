@@ -1,10 +1,14 @@
-----------------------------------------------------------
+--------------------------------------------------------------------------------
+--[[!
+-- \file apps/amg/famgLE.lua
 --
---   Lua - Script to perform the Laplace-Problem
+-- \author Martin Rupp, Andreas Vogel
 --
---   Author: Martin Rupp / Andreas Vogel
+-- \brief Test Script for FAMG on Linear Elasticity
 --
-----------------------------------------------------------
+]]--
+--------------------------------------------------------------------------------
+
 -- ProfileLUA(true)
 SetOutputProfileStats(false)
 
@@ -56,12 +60,16 @@ iSmooths = util.GetParamNumber("-iSmooths", 2, "nr of pre/postsmooths")
 
 numSys = util.GetParamNumber("-numSys", 1, "nr of systems")
 
-gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_tri_2x2.ugx")
+-- gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_tri_2x2.ugx")
+-- gridName = util.GetParam("-grid", "unit_square/unit_square_quads_8x8.ugx")
+-- gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2.ugx")
+gridName = util.GetParam("-grid", "unit_square_quads_8x8_four_dirichlet_nodes.ugx")
+-- gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2_dirichlet_bottom.ugx")
 
 
 --------------------------------------------------------------------------------------------------
 util.CheckAndPrintHelp(
-"FAMG Script by Martin Rupp"
+"Script for FAMG on Linear Elasticity\nMartin Rupp"
 )
 --------------------------------------------------------------------------------------------------
 
@@ -86,7 +94,7 @@ iSeed = 23
 nSystems = numSys
 
 -- choose algebra
-InitUG(dim, AlgebraType("CPU", 1))
+InitUG(dim, AlgebraType("CPU", 2))
 
 --------------------------------
 -- User Data Functions (begin)
@@ -104,6 +112,10 @@ end
 function ourDirichletBnd2d(x, y, t)
 	local s = 2*math.pi
 	return true, math.sin(s*x) + math.sin(s*y)
+end
+
+function ourNeumannBnd(x, y, t)
+	return 0
 end
 
 function ourDiffTensor3d(x, y, z, t)
@@ -161,8 +173,14 @@ diffusionMatrix = ConstUserMatrix(1.0)
 rhs = LuaUserNumber("ourRhs"..dim.."d")
 --rhs = ConstUserNumber(0.0)
 
+
+function ourNeumannBnd2d(x, y, t)
+   return true, -1
+end
+
 -- dirichlet setup
 dirichlet = LuaCondUserNumber("ourDirichletBnd"..dim.."d")
+neumann = LuaCondUserNumber("ourNeumannBnd"..dim.."d")
 
 -----------------------------------------------------------------
 --  Setup FV Convection-Diffusion Element Discretization
@@ -173,9 +191,17 @@ elemDisc = LinearElastoPlasticity("ux, uy", "Inner")
 -- set Elasticity-tensor "C" with material constants: 
 -- first parameter: lambda ("1.lame constant")
 -- second parameter: mu ("2.lame constant")
-elemDisc:set_hooke_elasticity_tensor(110743.82,80193.80)
+if util.HasParamOption("-bSmall") then
+	elemDisc:set_hooke_elasticity_tensor(0.11074382,0.08019380)
+else
+	elemDisc:set_hooke_elasticity_tensor(110743.82,80193.80)
+end
+
+-- elemDisc:set_hooke_elasticity_tensor(1.1,0.8)
+-- elemDisc:set_hooke_elasticity_tensor(110000,80000)
+
 -- set volume force "f":
-elemDisc:set_volume_forces(0.0) 
+elemDisc:set_volume_forces(1) 
 
 -----------------------------------------------------------------
 --  Setup Dirichlet Boundary
@@ -189,6 +215,14 @@ dirichletBND = DirichletBoundary()
 dirichletBND:add("DirichletValue"..dim.."d", "ux", "Boundary")
 dirichletBND:add("DirichletValue"..dim.."d", "uy", "Boundary")
 
+
+
+-- neumannZero = LuaCondUserNumber("ourNeumannBnd"..dim.."d")
+-- neumannDisc = NeumannBoundary("Inner")
+-- neumannDisc:add(neumann, "ux", "Boundary") -- not necessary when zero
+-- neumannDisc:add(neumann, "uy", "Boundary") -- not necessary when zero
+
+
 -------------------------------------------
 --  Setup Domain Discretization
 -------------------------------------------
@@ -196,6 +230,8 @@ dirichletBND:add("DirichletValue"..dim.."d", "uy", "Boundary")
 domainDisc = DomainDiscretization(approxSpace)
 domainDisc:add(elemDisc)
 domainDisc:add(dirichletBND)
+-- domainDisc:add(neumannDisc)
+
 
 
 -------------------------------------------
@@ -220,10 +256,10 @@ tAssemble = os.clock()-tBefore
 print ("done")
 
 -- write matrix for test purpose
-if bWriteMat then
+--if bWriteMat then
 	SaveMatrixForConnectionViewer(u, A, "Stiffness.mat")
 	SaveVectorForConnectionViewer(b, "Rhs.vec")
-end
+--end
 
 -- create algebraic Preconditioners
 
@@ -242,8 +278,8 @@ if bUseJacobi then
 	presmoother = jac
 	postsmoother = jac
 else
-	presmoother = sgs
-	postsmoother = sgs
+	presmoother = gs
+	postsmoother = gs
 end
 
 
@@ -252,8 +288,8 @@ end
 -- create Base Solver
 baseConvCheck = ConvCheck()
 baseConvCheck:set_maximum_steps(1000)
-baseConvCheck:set_minimum_defect(1e-16)
-baseConvCheck:set_reduction(1e-16)
+baseConvCheck:set_minimum_defect(1e-5)
+baseConvCheck:set_reduction(1e-5)
 baseConvCheck:set_verbose(false)
 
 if false then
@@ -264,7 +300,61 @@ else
 	base = LU()
 end
 
-amg = SetupFAMGSolver(base, presmoother, postsmoother) 
+		
+------- Create AMG Solver ---------
+if true then
+	amg = SetupFAMGSolver(base, presmoother, postsmoother)
+	
+	if bExternalCoarsening then
+		amg:set_external_coarsening(true)
+		amg:set_parallel_coarsening(GetColorCoarsening())
+		if dim == 2 then
+			amg:set_strong_connection_external(0.2)
+		else
+			amg:set_strong_connection_external(0.1)
+		end
+	end
+	amg:set_cycle_type(1)
+	amg:set_delta(0.127)
+	amg:set_delta(0.11) -- g
+	-- amg:set_delta(1e7)
+	-- amg:set_delta(1e5)		
+	amg:set_theta(0.9)
+	amg:set_max_nodes_for_base(maxBase)
+	amg:set_max_levels(maxLevels)
+	-- amg:set_debug_level_calculate_parent_pairs(2)
+	-- amg:set_debug_level_precalculate_coarsening(4)
+	-- amg:set_debug_level_external_coarsening(4)
+	
+	jac2 = Jacobi()
+	jac2:set_damp(0.3)
+	amg:set_testvector_smooths(0)
+	amg:set_testvector_smoother(jac2)
+	amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
+	
+	if false then
+		amg:set_testvector_from_matrix_rows()
+	else
+		-- amg:set_testvectors_LE(1e4)
+		-- amg:set_testvectors_LE(1e7) -- gg
+		amg:set_testvectors_LE(1)
+		bWriteMat = true		
+	end	
+else
+
+	print ("create AMG... ")
+	amg = RSAMGPreconditioner()
+	-- amg:set_parallel_coarsening(GetFullSubdomainBlockingCoarsening())
+	amg:set_parallel_coarsening(GetColorCoarsening())
+	-- amg:set_parallel_coarsening(GetRS3Coarsening())
+	-- amg:set_parallel_coarsening(GetSimpleParallelCoarsening())
+	if bAggressiveCoarsening then
+		amg:enable_aggressive_coarsening_A(2)
+	end
+	amg:set_presmoother(gs)
+	amg:set_postsmoother(gs)
+	amg:set_base_solver(base)
+end
 amg:set_one_init(true)
 
 if bWriteMat then
@@ -277,17 +367,21 @@ if bWriteMat then
 	amg:set_matrix_write_path(matrixWritePath)
 end	
 
-
+		
 
 
 -- create Convergence Check
 convCheck = ConvCheck()
-convCheck:set_maximum_steps(20)
-convCheck:set_minimum_defect(1e-30)
-convCheck:set_reduction(1e-30)
+convCheck:set_maximum_steps(50)
+convCheck:set_minimum_defect(1e-15)
+convCheck:set_reduction(1e-20)
 
 print("done.")
 -- create Linear Solver
+
+-- create GMG solver --
+
+
 
 
 -- Apply Solver
@@ -301,7 +395,75 @@ b2:assign(b)
 -- 1. init operator
 
 
+if true then
+	-- Gemoetric Multi Grid
+	gmg = GeometricMultiGrid(approxSpace)
+	gmg:set_discretization(domainDisc)
+	gmg:set_base_level(1) -- 1
+	gmg:set_base_solver(base)
+	gmg:set_smoother(gs)
+	gmg:set_cycle_type(1)
+	gmg:set_num_presmooth(2)
+	gmg:set_num_postsmooth(2)
+	gmgSolver = LinearSolver()
+	gmgSolver:set_preconditioner(gmg)
+	gmgCGSolver = CG()
+	gmgCGSolver:set_preconditioner(gmg)
+	
+	-- create Convergence Check
+	gmgConvCheck = ConvCheck()
+	gmgConvCheck:set_maximum_steps(200)
+	gmgConvCheck:set_minimum_defect(1e-15)
+	gmgConvCheck:set_reduction(1e-20)
+	
+	gmgSolver:set_convergence_check(gmgConvCheck)
+	gmgCGSolver:set_convergence_check(gmgConvCheck)
+	
+	u = GridFunction(approxSpace)
+	b = GridFunction(approxSpace)
+	u:set_random(-1.0, 1.0)
+	
+	linOp = AssembledLinearOperator()
+	linOp:set_discretization(domainDisc)
 
+	-- 1. init operator
+	print("GMG");
+	if AssembleLinearOperatorRhsAndSolution(linOp, u, b) == false then 
+		print("Could not assemble operator"); exit(); 
+	end
+	
+	srand(iSeed)
+	u:set_random(-1.0, 1.0)
+	domainDisc:adjust_solution(u)
+	
+		-- 2. apply solver
+	print("Apply solver.")
+	if ApplyLinearSolver(linOp, u, b, gmgSolver) == false then
+		print("Could not apply linear solver.");
+	end
+	print("done");
+	
+		-- 1. init operator
+	print("GMG/CG");
+	if AssembleLinearOperatorRhsAndSolution(linOp, u, b) == false then 
+		print("Could not assemble operator"); exit(); 
+	end
+	
+	srand(iSeed)
+	u:set_random(-1.0, 1.0)
+	domainDisc:adjust_solution(u)
+		-- 2. apply solver
+	print("Apply solver.")
+	if ApplyLinearSolver(linOp, u, b, gmgCGSolver) == false then
+		print("Could not apply linear solver.");
+	end
+	print("done");
+	
+	
+	SaveVectorForConnectionViewer(u, A, "gmg_u.vec")	
+	SaveVectorForConnectionViewer(b, A, "gmg_b.vec")
+end
+		
 
 -- 2. init solver for linear Operator
 print("Init solver for operator.")
@@ -312,6 +474,7 @@ print("Init solver for operator.")
 
 	print("Apply solver: LINEAR SOLVER.")
 	srand(iSeed)
+	b:assign(b2)
 	u:set_random(-1.0, 1.0)
 	domainDisc:adjust_solution(u)
 	tBefore = os.clock()
@@ -323,9 +486,11 @@ print("Init solver for operator.")
 	steps = convCheck:step()
 	solution = GridFunction(approxSpace)
 	solution:assign(u)
+	SaveVectorForConnectionViewer(u, A, "amg_u.vec")	
+	SaveVectorForConnectionViewer(b, A, "amg_b.vec")
 
 ---------
-if false then
+if true then
 	linSolver = CG()
 	linSolver:set_preconditioner(amg)
 	linSolver:set_convergence_check(convCheck)
@@ -334,6 +499,7 @@ if false then
 	print("Apply solver: CG.")
 	srand(iSeed)
 	u:set_random(-1.0, 1.0)
+	SaveVectorForConnectionViewer(u, A, "rand_u.vec")
 	domainDisc:adjust_solution(u)
 	b:assign(b2)
 	tBefore = os.clock()
@@ -343,6 +509,9 @@ if false then
 	
 	lastReductionCG = convCheck:defect()/convCheck:previous_defect()
 	stepsCG = convCheck:step()
+	
+	SaveVectorForConnectionViewer(u, A, "amg_cg_u.vec")	
+	SaveVectorForConnectionViewer(b, A, "amg_cg_b.vec")
 end
 ---------
 if util.HasParamOption("-bCheck") then
@@ -367,11 +536,11 @@ if util.HasParamOption("-bCheck") then
 		amg:write_interfaces()
 	end
 	print("amg:check(u, b)")
-	--amg:check(u,b)	
+	amg:check(u,b)	
 	--GetLogAssistant():set_output_process(util.GetParamNumber("-outproc", 0))
 	
 	--print("amg:check_testvector()")
-	amg:check_testvector()
+	-- amg:check_testvector()
 	--print("amg:check_fsmoothing()")
 	-- amg:check_fsmoothing()
 end	
