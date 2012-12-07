@@ -306,7 +306,7 @@ if numPreRefs > 0 then
 	end
 end
 -- Distribute the domain to all involved processes
-assert(DistributeDomain(dom) == true, "Error while Distributing Grid.")
+assert(util.DistributeDomain(dom) == true, "Error while Distributing Grid.")
 
 -- Perform post-refine
 if numRefs > 0 then

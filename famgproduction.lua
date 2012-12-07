@@ -226,7 +226,7 @@ refiner:refine()
 end
 
 -- Distribute the domain to all involved processes
-assert(DistributeDomain(dom) == true, "Error while Distributing Grid.")
+assert(util.DistributeDomain(dom) == true, "Error while Distributing Grid.")
 
 -- Perform post-refine
 for i=numPreRefs+1,numRefs do

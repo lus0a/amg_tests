@@ -104,7 +104,7 @@ refiner:refine()
 end
 
 -- Distribute the domain to all involved processes
-if DistributeDomain(dom) == false then
+if util.DistributeDomain(dom) == false then
 print("Error while Distributing Grid.")
 exit()
 end

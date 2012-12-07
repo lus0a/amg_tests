@@ -245,7 +245,7 @@ numProcs = GetNumProcesses()
 -- Distribute the domain to all involved processes
 -- Since only process 0 loaded the grid, it is the only one which has to
 -- fill a partitionMap (but every process needs one and has to return his map
--- by calling 'RedistributeDomain()', even if in this case the map is empty
+-- by calling 'DistributeDomain()', even if in this case the map is empty
 -- for all processes but process 0).
 print("Distribute domain with 'distributionType' = " .. distributionType .. "...")
 partitionMap = PartitionMap()
@@ -273,7 +273,7 @@ if GetProcessRank() == 0 then
 	end
 end
 
-if RedistributeDomain(dom, partitionMap, true) == false then
+if DistributeDomain(dom, partitionMap, true) == false then
 	print("Redistribution failed. Please check your partitionMap.")
 	exit()
 end
