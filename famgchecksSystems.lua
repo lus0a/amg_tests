@@ -175,8 +175,7 @@ elemDisc = {}
 upwind = {}
 for i=1, nSystems do
 	upwind[i] = FullUpwind2d()
-	elemDisc[i] = ConvectionDiffusion("c"..i, "Inner")
-	elemDisc[i]:set_disc_scheme("fv1")
+	elemDisc[i] = ConvectionDiffusion("c"..i, "Inner", "fv1")
 	elemDisc[i]:set_upwind(upwind[i])
 	elemDisc[i]:set_diffusion(diffusionMatrix)
 	elemDisc[i]:set_source(rhs)

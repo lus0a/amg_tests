@@ -162,8 +162,7 @@ else
 upwind = WeightedUpwind3d();
 end
 upwind:set_weight(0.0)
-elemDisc = ConvectionDiffusion("c", "Inner")
-elemDisc:set_disc_scheme("fv1")
+elemDisc = ConvectionDiffusion("c", "Inner", "fv1")
 elemDisc:set_upwind(upwind)
 elemDisc:set_diffusion(diffusionMatrix)
 elemDisc:set_velocity(velocityField)

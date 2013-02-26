@@ -485,8 +485,7 @@ upwind = FullUpwind2d()
 --upwind = PartialUpwind2d()
 else print("Dim not supported for upwind"); exit() end
 
-elemDisc = ConvectionDiffusion("c", "Inner")
-elemDisc:set_disc_scheme("fv1")
+elemDisc = ConvectionDiffusion("c", "Inner", "fv1")
 elemDisc:set_upwind(upwind)
 elemDisc:set_diffusion(problem.diffusion)
 elemDisc:set_velocity(problem.velocity)
