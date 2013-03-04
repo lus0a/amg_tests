@@ -42,7 +42,7 @@ bAggressiveCoarsening = util.HasParamOption("-AC", "if true, use aggressive coar
 bExternalCoarsening = util.HasParamOption("-XC", "if true, use external coarsening in FAMG")
 jacBaseSolver = util.HasParamOption("-jacBaseSolver", "if true, use Linear Jacobi as Base Solver")
 
-famgDelta = util.GetParamNumber("-delta", 0.1, "\"Interpolation quality\" F may not be worse than this (F < m_delta)")
+famgDelta = util.GetParamNumber("-delta", 0.1, "Interpolation quality F may not be worse than this (F < m_delta)")
 famgTheta = util.GetParamNumber("-theta", 0.9, "with multiple parents, discard pairs with m_theta * F > min F.")
 
 minNodes = util.GetParamNumber("-minNodes", 10, "minimum number of nodes on one processor (for agglomeration)")
