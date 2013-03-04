@@ -15,6 +15,9 @@ SetOutputProfileStats(false)
 ug_load_script("ug_util.lua")
 ug_load_script("util.lua")
 
+
+AssertPluginsLoaded({famg})
+
 -- command line parameters
 --------------------------------------------------------------------------------------------------
 
@@ -41,7 +44,7 @@ bAggressiveCoarsening = util.HasParamOption("-AC", "if true, use aggressive coar
 bExternalCoarsening = util.HasParamOption("-XC", "if true, use external coarsening in FAMG")
 jacBaseSolver = util.HasParamOption("-jacBaseSolver", "if true, use Linear Jacobi as Base Solver")
 
-famgDelta = util.GetParamNumber("-delta", 0.1, "\"Interpolation quality\" F may not be worse than this (F < m_delta)")
+famgDelta = util.GetParamNumber("-delta", 0.1, "Interpolation quality F may not be worse than this (F < m_delta)")
 famgTheta = util.GetParamNumber("-theta", 0.9, "with multiple parents, discard pairs with m_theta * F > min F.")
 
 minNodes = util.GetParamNumber("-minNodes", 10, "minimum number of nodes on one processor (for agglomeration)")
@@ -82,7 +85,12 @@ end
 iSeed = 23
 
 -- choose dimension and algebra
-InitUG(dim, AlgebraType("CPU", 1));
+if util.HasParamOption("-bCRS") then
+	InitUG(dim, AlgebraType("CRS", 1));
+else
+	InitUG(dim, AlgebraType("CPU", 1));
+end
+
 
 
 
@@ -117,7 +125,6 @@ else
 		numPreRefs = math.min(3, numRefs-3)
 	end
 end
-
 
 
 if logtofile ~= nil then
@@ -167,6 +174,7 @@ function writeln(...)
 	write(...)
 	write("\n")
 end
+
 
 --------------------------------
 -- User Data Functions (begin)
@@ -335,6 +343,15 @@ approxSpace:init_levels()
 approxSpace:init_top_surface()
 approxSpace:print_statistic()
 
+myAMG = RSAMGPreconditioner()
+blubber = myAMG
+bubber = blubber
+bub = bubber
+
+
+
+
+
 -----------------------------------------------------------------
 --  Setup FV Convection-Diffusion Element Discretization
 -----------------------------------------------------------------
@@ -350,6 +367,10 @@ elemDisc:set_diffusion(diffusionMatrix)
 elemDisc:set_velocity(velocityField)
 elemDisc:set_reaction_rate(reaction)
 elemDisc:set_source(rhs)
+function util.bla (name)
+print(name)
+end
+
 
 
 -----------------------------------------------------------------
@@ -548,7 +569,6 @@ amg:set_matrix_write_path(matrixWritePath)
 end
 
 
-
 amg:set_num_presmooth(iSmooths)
 amg:set_num_postsmooth(iSmooths)
 if bWCycle then
@@ -571,6 +591,7 @@ amg:set_max_fill_before_base(0.5)
 amg:set_fsmoothing(true)
 amg:set_prolongation_truncation(0)
 amg:tostring()
+
 
 
 -- create Convergence Check
@@ -610,20 +631,22 @@ print("Init solver for operator.")
 	tBefore = os.clock()
 	linSolver:apply_return_defect(u,b)	
 	tSolve = os.clock()-tBefore
+        
 	print("done")
 	
 	lastReduction = convCheck:defect()/convCheck:previous_defect()
 	steps = convCheck:step()
 	solution = GridFunction(approxSpace)
 	solution:assign(u)
-
+        
+        
 ---------
 if false then
 	linSolver = CG()
 	linSolver:set_preconditioner(amg)
 	linSolver:set_convergence_check(convCheck)
 	linSolver:init(A)
-	
+        
 	print("Apply solver: CG.")
 	srand(iSeed)
 	u:set_random(-1.0, 1.0)
@@ -635,6 +658,7 @@ if false then
 	print("done")
 	
 	lastReductionCG = convCheck:defect()/convCheck:previous_defect()
+        
 	stepsCG = convCheck:step()
 end
 ---------
@@ -760,3 +784,9 @@ end
 print("\n")		
 util.PrintArguments()
 util.PrintIgnoredArguments()
+--print(GetProfileNode("main"):call_tree())
+if util.HasParamOption("-bCRS") then
+	WriteProfileData("amgCRS.pdxml")
+else
+	WriteProfileData("amg.pdxml")
+end
