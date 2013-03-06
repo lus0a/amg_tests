@@ -270,8 +270,8 @@ elemDisc:set_source(rhs)
 --  Setup Neumann Boundary
 -----------------------------------------------------------------
 
---neumannDisc = NeumannBoundary("Inner")
---neumannDisc:add(neumann, "c", "NeumannBoundary")
+--neumannDisc = NeumannBoundary("c")
+--neumannDisc:add(neumann, "NeumannBoundary", "Inner")
 
 -----------------------------------------------------------------
 --  Setup Dirichlet Boundary
