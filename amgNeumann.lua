@@ -1,6 +1,6 @@
 --------------------------------------------------------------------------------
 --[[!
--- \file apps/amg/famgneumann.lua
+-- \file apps/amg/amgNeumann.lua
 --
 -- \author Martin Rupp, Andreas Vogel
 --
