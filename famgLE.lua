@@ -24,7 +24,7 @@ numRefs = util.GetParamNumber("-numRefs", 1, "number of refinements")
 numPreRefs = util.GetParamNumber("-numPreRefs", -1, "number of refinements before ")
 
 
-maxBase = util.GetParamNumber("-maxBase", 600, "maximum number of nodes before base solver is used")
+maxBase = util.GetParamNumber("-maxBase", 1200, "maximum number of nodes before base solver is used")
 maxLevels = util.GetParamNumber("-maxLevels", 30, "maximum number of AMG levels")
 
 RAepsilon = util.GetParamNumber("-RAepsilon", 1, "epsilon for rotated anisotropy")
@@ -64,6 +64,8 @@ numSys = util.GetParamNumber("-numSys", 1, "nr of systems")
 -- gridName = util.GetParam("-grid", "unit_square/unit_square_quads_8x8.ugx")
 -- gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2.ugx")
 gridName = util.GetParam("-grid", "unit_square_quads_8x8_four_dirichlet_nodes.ugx")
+gridName = util.GetParam("-grid", "unit_square/neumann_stretched.ugx")
+gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_quads_16x16_stretched.ugx")
 -- gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2_dirichlet_bottom.ugx")
 
 
@@ -146,14 +148,20 @@ print ("Setting up1")
 
 -- Create, Load, Refine and Distribute Domain
 neededSubsets = {"Inner", "Boundary"}
-dom = util.CreateAndDistributeDomain(gridName, numRefs-1, numPreRefs, neededSubsets)
+dom = util.CreateAndDistributeDomain(gridName, numRefs, 0, neededSubsets)
 
 print ("Setting up2")
 -- create Approximation Space
 print("Create ApproximationSpace")
 approxSpace = ApproximationSpace(dom)
-approxSpace:add_fct("ux", "Lagrange", 1)          
-approxSpace:add_fct("uy", "Lagrange", 1)  
+bLinearElasticity = true
+if bLinearElasticity then
+	approxSpace:add_fct("ux", "Lagrange", 1)          
+	approxSpace:add_fct("uy", "Lagrange", 1)
+else  
+	approxSpace:add_fct("c1", "Lagrange", 1)          
+	approxSpace:add_fct("c2", "Lagrange", 1)
+end
 print ("Setting up3")
 approxSpace:init_levels()
 approxSpace:init_top_surface()
@@ -186,52 +194,79 @@ neumann = LuaCondUserNumber("ourNeumannBnd"..dim.."d")
 --  Setup FV Convection-Diffusion Element Discretization
 -----------------------------------------------------------------
 
-elemDisc = LinearElastoPlasticity("ux, uy", "Inner")
-
--- set Elasticity-tensor "C" with material constants: 
--- first parameter: lambda ("1.lame constant")
--- second parameter: mu ("2.lame constant")
-if util.HasParamOption("-bSmall") then
-	elemDisc:set_hooke_elasticity_tensor(0.11074382,0.08019380)
+if bLinearElasticity then
+	elemDisc = LinearElastoPlasticity("ux, uy", "Inner")
+	
+	-- set Elasticity-tensor "C" with material constants: 
+	-- first parameter: lambda ("1.lame constant")
+	-- second parameter: mu ("2.lame constant")
+	if util.HasParamOption("-bSmall") then
+		elemDisc:set_hooke_elasticity_tensor(0.11074382,0.08019380)
+	else
+		--elemDisc:set_hooke_elasticity_tensor(110743.82,80193.80)
+		elemDisc:set_hooke_elasticity_tensor(11,8)
+	end
+	
+	-- elemDisc:set_hooke_elasticity_tensor(1.1,0.8)
+	-- elemDisc:set_hooke_elasticity_tensor(110000,80000)
+	
+	-- set volume force "f":
+	elemDisc:set_volume_forces(1) 
+	
+	-----------------------------------------------------------------
+	--  Setup Dirichlet Boundary
+	-----------------------------------------------------------------
+	
+	function DirichletValue2d(x, y, t)
+		return 0.0
+	end
+	
+	dirichletBND = DirichletBoundary()
+	dirichletBND:add("DirichletValue"..dim.."d", "ux", "Boundary")
+	dirichletBND:add("DirichletValue"..dim.."d", "uy", "Boundary")
+	
+	
+	
+	-- neumannZero = LuaCondUserNumber("ourNeumannBnd"..dim.."d")
+	-- neumannDisc = NeumannBoundary("Inner")
+	-- neumannDisc:add(neumann, "ux", "Boundary") -- not necessary when zero
+	-- neumannDisc:add(neumann, "uy", "Boundary") -- not necessary when zero
+	
+	
+	-------------------------------------------
+	--  Setup Domain Discretization
+	-------------------------------------------
+	
+	domainDisc = DomainDiscretization(approxSpace)
+	domainDisc:add(elemDisc)
+	domainDisc:add(dirichletBND)
+	-- domainDisc:add(neumannDisc)
 else
-	elemDisc:set_hooke_elasticity_tensor(110743.82,80193.80)
+	
+	diffusionMatrix = ConstUserMatrix(1.0)
+	dirichlet = LuaCondUserNumber("ourDirichletBnd"..dim.."d")
+	
+	elemDisc = {}
+	function Diffusion2d(x, y, t)
+		return	1, 0, 
+			0, 1
+	end
+	numSys = 2
+	for i=1, numSys do
+		elemDisc[i] = ConvectionDiffusion("c"..i, "Inner", "fv1")
+		elemDisc[i]:set_diffusion("Diffusion2d")
+	end
+	dirichletBND = DirichletBoundary()
+	for i=1, numSys do
+		dirichletBND:add(dirichlet, "c"..i, "Boundary")
+	end
+	
+	domainDisc = DomainDiscretization(approxSpace)
+	for i=1, numSys do
+		domainDisc:add(elemDisc[i])
+	end
+	domainDisc:add(dirichletBND)
 end
-
--- elemDisc:set_hooke_elasticity_tensor(1.1,0.8)
--- elemDisc:set_hooke_elasticity_tensor(110000,80000)
-
--- set volume force "f":
-elemDisc:set_volume_forces(1) 
-
------------------------------------------------------------------
---  Setup Dirichlet Boundary
------------------------------------------------------------------
-
-function DirichletValue2d(x, y, t)
-	return 0.0
-end
-
-dirichletBND = DirichletBoundary()
-dirichletBND:add("DirichletValue"..dim.."d", "ux", "Boundary")
-dirichletBND:add("DirichletValue"..dim.."d", "uy", "Boundary")
-
-
-
--- neumannZero = LuaCondUserNumber("ourNeumannBnd"..dim.."d")
--- neumannDisc = NeumannBoundary("Inner")
--- neumannDisc:add(neumann, "ux", "Boundary") -- not necessary when zero
--- neumannDisc:add(neumann, "uy", "Boundary") -- not necessary when zero
-
-
--------------------------------------------
---  Setup Domain Discretization
--------------------------------------------
-
-domainDisc = DomainDiscretization(approxSpace)
-domainDisc:add(elemDisc)
-domainDisc:add(dirichletBND)
--- domainDisc:add(neumannDisc)
-
 
 
 -------------------------------------------
@@ -303,7 +338,11 @@ end
 		
 ------- Create AMG Solver ---------
 if true then
-	amg = SetupFAMGSolver(base, presmoother, postsmoother)
+	amg = FAMGPreconditioner()
+	amg = util.SetupFAMGPreconditioner(base, presmoother, postsmoother)
+	amg:set_num_presmooth(2)
+	amg:set_num_postsmooth(2)
+	amg:set_write_f_values(true)
 	
 	if bExternalCoarsening then
 		amg:set_external_coarsening(true)
@@ -315,11 +354,10 @@ if true then
 		end
 	end
 	amg:set_cycle_type(1)
-	amg:set_delta(0.127)
-	amg:set_delta(0.11) -- g
+	
 	-- amg:set_delta(1e7)
 	-- amg:set_delta(1e5)		
-	amg:set_theta(0.9)
+	
 	amg:set_max_nodes_for_base(maxBase)
 	amg:set_max_levels(maxLevels)
 	-- amg:set_debug_level_calculate_parent_pairs(2)
@@ -337,9 +375,21 @@ if true then
 	else
 		-- amg:set_testvectors_LE(1e4)
 		-- amg:set_testvectors_LE(1e7) -- gg
-		amg:set_testvectors_LE(1)
+		amg:set_testvectors_LE_2d(1e3, 1e3)
 		bWriteMat = true		
 	end	
+	
+	if false then
+		-- neumann.ugx
+		amg:set_delta(0.05)
+		amg:set_theta(0.9)
+		amg:set_testvectors_LE(1e3)
+	else
+		-- neumann_stretched
+		amg:set_delta(0.26)
+		amg:set_theta(0.9)
+		amg:set_testvectors_LE_2d(1e3, 1e3)
+	end
 else
 
 	print ("create AMG... ")
@@ -396,10 +446,18 @@ b2:assign(b)
 
 
 if true then
+	dbgWriter = GridFunctionDebugWriter(approxSpace)
+	dbgWriter:set_base_dir(matrixWritePath)
+	dbgWriter:set_vtk_output(false)
+	transfer = StdTransfer(approxSpace)
+	transfer:set_debug(dbgWriter)
+	
+	
 	-- Gemoetric Multi Grid
 	gmg = GeometricMultiGrid(approxSpace)
+	gmg:set_transfer(transfer)
 	gmg:set_discretization(domainDisc)
-	gmg:set_base_level(1) -- 1
+	gmg:set_base_level(0) -- 1
 	gmg:set_base_solver(base)
 	gmg:set_smoother(gs)
 	gmg:set_cycle_type(1)
@@ -412,55 +470,72 @@ if true then
 	
 	-- create Convergence Check
 	gmgConvCheck = ConvCheck()
-	gmgConvCheck:set_maximum_steps(200)
-	gmgConvCheck:set_minimum_defect(1e-15)
-	gmgConvCheck:set_reduction(1e-20)
+	gmgConvCheck:set_maximum_steps(50)
+	gmgConvCheck:set_minimum_defect(1e-24)
+	gmgConvCheck:set_reduction(1e-24)
 	
 	gmgSolver:set_convergence_check(gmgConvCheck)
 	gmgCGSolver:set_convergence_check(gmgConvCheck)
+	
+	
 	
 	u = GridFunction(approxSpace)
 	b = GridFunction(approxSpace)
 	u:set_random(-1.0, 1.0)
 	
+	
+	
 	linOp = AssembledLinearOperator()
 	linOp:set_discretization(domainDisc)
 
 	-- 1. init operator
-	print("GMG");
-	if AssembleLinearOperatorRhsAndSolution(linOp, u, b) == false then 
-		print("Could not assemble operator"); exit(); 
-	end
-	
-	srand(iSeed)
-	u:set_random(-1.0, 1.0)
-	domainDisc:adjust_solution(u)
-	
-		-- 2. apply solver
-	print("Apply solver.")
-	if ApplyLinearSolver(linOp, u, b, gmgSolver) == false then
-		print("Could not apply linear solver.");
-	end
-	print("done");
-	
-		-- 1. init operator
 	print("GMG/CG");
 	if AssembleLinearOperatorRhsAndSolution(linOp, u, b) == false then 
 		print("Could not assemble operator"); exit(); 
 	end
 	
+	b2 = GridFunction(approxSpace)
+	b2:assign(b)
+	
 	srand(iSeed)
 	u:set_random(-1.0, 1.0)
 	domainDisc:adjust_solution(u)
+	
 		-- 2. apply solver
 	print("Apply solver.")
 	if ApplyLinearSolver(linOp, u, b, gmgCGSolver) == false then
 		print("Could not apply linear solver.");
 	end
+	
+	print("done");
+	
+	uEx = GridFunction(approxSpace)
+	uEx:assign(u)
+	
+		-- 1. init operator
+	print("GMG");
+	b:assign(b2)
+	
+	srand(iSeed)
+	u:set_random(-1.0, 1.0)
+	domainDisc:adjust_solution(u)
+		-- 2. apply solver
+	print("Apply solver.")
+	gmgConvCheck:set_maximum_steps(5)
+	
+	
+	--gmg:set_debug(dbgWriter)
+	
+	
+	if ApplyLinearSolver(linOp, u, b, gmgSolver) == false then
+		print("Could not apply linear solver.");
+	end
+	SaveVectorDiffForConnectionViewer(u, uEx, "gmg_diff.vec")
 	print("done");
 	
 	
-	SaveVectorForConnectionViewer(u, A, "gmg_u.vec")	
+	SaveVectorForConnectionViewer(u, "gmg_u.vec")
+	--SaveVectorForConnectionViewer(u, A, "gmg_u.vec")	
 	SaveVectorForConnectionViewer(b, A, "gmg_b.vec")
 end
 		
@@ -486,6 +561,7 @@ print("Init solver for operator.")
 	steps = convCheck:step()
 	solution = GridFunction(approxSpace)
 	solution:assign(u)
+	SaveVectorDiffForConnectionViewer(u, uEx, "amg_diff.vec")
 	SaveVectorForConnectionViewer(u, A, "amg_u.vec")	
 	SaveVectorForConnectionViewer(b, A, "amg_b.vec")
 
@@ -510,6 +586,7 @@ if true then
 	lastReductionCG = convCheck:defect()/convCheck:previous_defect()
 	stepsCG = convCheck:step()
 	
+	SaveVectorDiffForConnectionViewer(u, uEx, "amg_cg_diff.vec")
 	SaveVectorForConnectionViewer(u, A, "amg_cg_u.vec")	
 	SaveVectorForConnectionViewer(b, A, "amg_cg_b.vec")
 end
@@ -636,3 +713,4 @@ end
 print("\n")		
 util.PrintArguments()
 util.PrintIgnoredArguments()
+WriteProfileData("famgLE.pdxml")
