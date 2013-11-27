@@ -416,7 +416,7 @@ gmg = GeometricMultiGrid(approxSpace)
 
 gmg:set_base_level(0)
 gmg:set_base_solver(base)
-gmg:set_parallel_base_solver(true)
+gmg:set_gathered_base_solver_if_ambiguous(false)
 gmg:set_smoother(smoother.pre)
 gmg:set_cycle_type(1)
 gmg:set_num_presmooth(1)
