@@ -449,7 +449,7 @@ if true then
 	dbgWriter = GridFunctionDebugWriter(approxSpace)
 	dbgWriter:set_base_dir(matrixWritePath)
 	dbgWriter:set_vtk_output(false)
-	transfer = StdTransfer(approxSpace)
+	transfer = StdTransfer()
 	transfer:set_debug(dbgWriter)
 	
 	

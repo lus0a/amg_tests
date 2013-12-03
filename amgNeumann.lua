@@ -464,7 +464,7 @@ if true then
 	gmg:set_num_presmooth(3)
 	gmg:set_num_postsmooth(3)
 	--gmg:set_debug( dbgWriter)
-	transfer = StdTransfer(approxSpace)
+	transfer = StdTransfer()
 	--transfer:set_debug(dbgWriter)
 	gmg:set_transfer(transfer)
 	
