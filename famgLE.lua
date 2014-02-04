@@ -195,7 +195,7 @@ neumann = LuaCondUserNumber("ourNeumannBnd"..dim.."d")
 -----------------------------------------------------------------
 
 if bLinearElasticity then
-	elemDisc = LinearElastoPlasticity("ux, uy", "Inner")
+	elemDisc = SmallStrainMechanics("ux, uy", "Inner")
 	
 	-- set Elasticity-tensor "C" with material constants: 
 	-- first parameter: lambda ("1.lame constant")

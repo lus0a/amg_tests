@@ -244,9 +244,9 @@ end
 --------------------------------------------------------------------------------
 
 if dim == 3 then
-	elemDisc = LinearElastoPlasticity("ux, uy, uz", "Inner") --Lame-equation
+	elemDisc = SmallStrainMechanics("ux, uy, uz", "Inner") --Lame-equation
 elseif dim == 2 then
-	elemDisc = LinearElastoPlasticity("ux, uy", "Inner")
+	elemDisc = SmallStrainMechanics("ux, uy", "Inner")
 end
 
 --elemDisc:set_elasticity_tensor_orthotropic(C11,C12,C13,C22,C23,C33,C44,C55,C66)

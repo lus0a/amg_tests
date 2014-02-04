@@ -94,7 +94,7 @@ print ("Setting up Assembling")
 --  Setup FV Convection-Diffusion Element Discretization
 -----------------------------------------------------------------
 
-elemDisc = LinearElastoPlasticity("ux, uy", "Inner")
+elemDisc = SmallStrainMechanics("ux, uy", "Inner")
 
 -- set Elasticity-tensor "C" with material constants: 
 -- first parameter: lambda ("1.lame constant")
