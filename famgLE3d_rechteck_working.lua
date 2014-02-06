@@ -243,14 +243,16 @@ end
 --  Setup FE Linear Element Discretization
 --------------------------------------------------------------------------------
 
+matLaw = HookeLaw()
+matLaw:set_hooke_elasticity_tensor(11,8)
+--matLaw:set_elasticity_tensor_orthotropic(C11,C12,C13,C22,C23,C33,C44,C55,C66)
+
 if dim == 3 then
 	elemDisc = SmallStrainMechanics("ux, uy, uz", "Inner") --Lame-equation
 elseif dim == 2 then
 	elemDisc = SmallStrainMechanics("ux, uy", "Inner")
 end
-
---elemDisc:set_elasticity_tensor_orthotropic(C11,C12,C13,C22,C23,C33,C44,C55,C66)
-elemDisc:set_hooke_elasticity_tensor(11,8)
+elemDisc:add_material_law(matLaw)
 -- set volume force "f":
 elemDisc:set_volume_forces(0.0) 
 elemDisc:set_quad_order(2) -- this is a hack to use Prism, since no quad order > 2 available. Uncomment if not using Prism

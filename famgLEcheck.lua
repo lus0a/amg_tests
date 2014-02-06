@@ -94,17 +94,18 @@ print ("Setting up Assembling")
 --  Setup FV Convection-Diffusion Element Discretization
 -----------------------------------------------------------------
 
-elemDisc = SmallStrainMechanics("ux, uy", "Inner")
-
+matLaw = HookeLaw()
 -- set Elasticity-tensor "C" with material constants: 
 -- first parameter: lambda ("1.lame constant")
 -- second parameter: mu ("2.lame constant")
 if util.HasParamOption("-bSmall") then
-	elemDisc:set_hooke_elasticity_tensor(0.11074382,0.08019380)
+	matLaw:set_hooke_elasticity_tensor(0.11074382,0.08019380)
 else
-	elemDisc:set_hooke_elasticity_tensor(11,8)
+	matLaw:set_hooke_elasticity_tensor(11,8)
 end
 
+elemDisc = SmallStrainMechanics("ux, uy", "Inner")
+elemDisc:add_material_law(matLaw)
 elemDisc:set_volume_forces(0) 
 
 -----------------------------------------------------------------
