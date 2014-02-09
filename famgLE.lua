@@ -211,7 +211,7 @@ if bLinearElasticity then
 	-- matLaw:set_hooke_elasticity_tensor(110000,80000)
 	
 	elemDisc = SmallStrainMechanics("ux, uy", "Inner")
-	elemDisc:add_material_law(matLaw)
+	elemDisc:set_material_law(matLaw)
 	-- set volume force "f":
 	elemDisc:set_volume_forces(1) 
 	

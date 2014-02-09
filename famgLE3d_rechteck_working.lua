@@ -252,7 +252,7 @@ if dim == 3 then
 elseif dim == 2 then
 	elemDisc = SmallStrainMechanics("ux, uy", "Inner")
 end
-elemDisc:add_material_law(matLaw)
+elemDisc:set_material_law(matLaw)
 -- set volume force "f":
 elemDisc:set_volume_forces(0.0) 
 elemDisc:set_quad_order(2) -- this is a hack to use Prism, since no quad order > 2 available. Uncomment if not using Prism

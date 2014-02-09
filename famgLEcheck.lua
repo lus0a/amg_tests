@@ -105,7 +105,7 @@ else
 end
 
 elemDisc = SmallStrainMechanics("ux, uy", "Inner")
-elemDisc:add_material_law(matLaw)
+elemDisc:set_material_law(matLaw)
 elemDisc:set_volume_forces(0) 
 
 -----------------------------------------------------------------
