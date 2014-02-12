@@ -129,7 +129,7 @@ end
 
 if logtofile ~= nil then
 	GetLogAssistant():enable_file_output(false, "")
-	GetLogAssistant():enable_file_output(true, logtofile..GetProcessRank())
+	GetLogAssistant():enable_file_output(true, logtofile..ProcRank())
 	filename = logtofile
 else
 	if dim == 2 then
@@ -141,7 +141,7 @@ else
 	else
 		discName = "27pt"
 	end
-	filename = "uglog_"..discName.."_procs"..GetNumProcesses().."_numRefs"..numRefs
+	filename = "uglog_"..discName.."_procs"..NumProcs().."_numRefs"..numRefs
 	if bExternalCoarsening then
 		filename = filename.."_XC"
 	end	
@@ -149,7 +149,7 @@ else
 		filename = filename.."_AC"
 	end
 
-	GetLogAssistant():enable_file_output(true, outdir..filename..GetProcessRank())
+	GetLogAssistant():enable_file_output(true, outdir..filename..ProcRank())
 end
 
 print("ugshell "..util.GetCommandLine())
@@ -697,10 +697,10 @@ end
 
 
 
-if GetProcessRank() == 0 then
+if ProcRank() == 0 then
 	stats = {
 	
-	{ "procs", GetNumProcesses() },
+	{ "procs", NumProcs() },
 	--{ "numPreRefs", numPreRefs},
 	{ "numRefs", numRefs },
 	{ "RAepsilon", RAepsilon},

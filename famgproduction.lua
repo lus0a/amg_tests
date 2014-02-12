@@ -14,10 +14,10 @@ ug_load_script("util.lua")
 GetLogAssistant():set_output_process(util.GetParamNumber("-outproc", 0))
 if util.HasParamOption("-logtofile") then
 	GetLogAssistant():enable_file_output(false, "")
-	GetLogAssistant():enable_file_output(true, util.GetParam("-logtofile")..GetProcessRank())
+	GetLogAssistant():enable_file_output(true, util.GetParam("-logtofile")..ProcRank())
 else
 	GetLogAssistant():enable_file_output(true, 
-		util.GetParam("-outdir", "").."uglog"..GetProcessRank())
+		util.GetParam("-outdir", "").."uglog"..ProcRank())
 end
 
 print("ugshell "..util.GetCommandLine())
@@ -515,7 +515,7 @@ if not bCheck then
 		-- ..os.date("y%Ym%md%d").. -- table.insert
 	stats = {
 		{ "date", os.date("y%Ym%md%d") },
-		{ "procs", GetNumProcesses() },
+		{ "procs", NumProcs() },
 		{ "numPreRefs", numPreRefs},
 		{ "numRefs", numRefs },
 		{ "dim", dim},
@@ -536,7 +536,7 @@ if not bCheck then
 		{"commandline", util.GetCommandLine() } } 
 		
 	util.printStats(stats)
-	if bWriteStats and GetProcessRank() == 0  then
+	if bWriteStats and ProcRank() == 0  then
 		util.writeFileStats(stats, util.GetParam("-outdir", "").."stats.txt")
 	end
 	

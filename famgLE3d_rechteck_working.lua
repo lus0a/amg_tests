@@ -174,7 +174,7 @@ for i=1,numPreRefs do
 	print( " done.")
 end
 
-numProcs = GetNumProcesses()
+numProcs = NumProcs()
 
 -- Distribute the domain to all involved processes
 -- Since only process 0 loaded the grid, it is the only one which has to

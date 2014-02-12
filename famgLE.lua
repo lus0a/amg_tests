@@ -628,10 +628,10 @@ end
 
 
 
-if GetProcessRank() == 0 then
+if ProcRank() == 0 then
 	stats = {
 	
-	{ "procs", GetNumProcesses() },
+	{ "procs", NumProcs() },
 	--{ "numPreRefs", numPreRefs},
 	{ "numRefs", numRefs },
 	{ "RAepsilon", RAepsilon},

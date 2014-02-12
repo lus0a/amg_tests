@@ -388,7 +388,7 @@ function fsize (file)
     return size
 end
 
-if bFileOutput and GetProcessRank() == 0 then
+if bFileOutput and ProcRank() == 0 then
 	output = io.open("output_"..os.date("y%Ym%md%d")..".txt", "a")
 	if fsize(output) == 0 then 
 		output:write("procs")
@@ -405,7 +405,7 @@ if bFileOutput and GetProcessRank() == 0 then
 		output:write("\ttAssemble [s]")
 		output:write("\n")
 	end
-	output:write(GetNumProcesses())
+	output:write(NumProcs())
 	output:write("\t"..numRefs)
 	output:write("\t"..amg:get_level_information(0):get_nr_of_nodes())
 	output:write("\t"..convCheck:step())
@@ -423,7 +423,7 @@ if bFileOutput and GetProcessRank() == 0 then
 end
 
 
-print("NumProcesses: "..GetNumProcesses())
+print("NumProcesses: "..NumProcs())
 print("numRefs: "..numRefs)
 print("nr of nodes: "..amg:get_level_information(0):get_nr_of_nodes())
 print("steps: "..convCheck:step())

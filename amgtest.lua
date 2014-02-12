@@ -386,7 +386,7 @@ if bFileOutput then
 output = io.open("output.txt", "a")
 
 output:write("dim\t"..dim)
-output:write("\tprocs\t"..GetNumProcesses())
+output:write("\tprocs\t"..NumProcs())
 -- output:write("\tgridName\t"..gridName)
 -- output:write("\tnumPreRefs\t"..numPreRefs)
 output:write("\tnumRefs\t".. numRefs)

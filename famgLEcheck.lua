@@ -360,9 +360,9 @@ steps = convCheck:step()
 
 -- ugshell -ex amg/famgLEcheck.lua -numRefs 5 -maxLevels 4 -stretchX 20  -delta 0.1 -Hinv 0 -maxParents 3  -threePenalty 1.4 --> 1.4
 
-if GetProcessRank() == 0 then
+if ProcRank() == 0 then
 	stats = {	
-	{ "procs", GetNumProcesses() },
+	{ "procs", NumProcs() },
 	--{ "numPreRefs", numPreRefs},
 	{ "numRefs", numRefs },
 	{ "maxLevels", maxLevels},
