@@ -12,16 +12,31 @@
 
 ug_load_script("../setup.lua")
 
+InitSignals()
+
+--big = true
+
+if big == true then
+	gridName = util.GetParam("-grid", "amgtests/unstructured_33k.ugx")
+	requiredSubsets = {"Inner", "Left", "Right", "Top", "Bottom"}
+	boundaries = {"Bottom"}
+else
+	gridName = util.GetParam("-grid", "amgtests/unstructured_3k.ugx")
+	requiredSubsets = {"Inner", "Left", "Right", "Top", "Bottom"}
+	boundaries = {"Bottom"}
+end
+
 gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_quads_2x2.ugx")
+requiredSubsets = {"Inner", "Boundary"}
+boundaries = {"Boundary"}
 
 util.CheckAndPrintHelp("");
 
-matrixWritePath=CreateOutputDirectory("RAMmatrices")
 
-dom = MyLoadGrid({ gridName = gridName} )
+dom = MyLoadGrid({ gridName = gridName, requiredSubsets = requiredSubsets} )
 
 approxSpace = CreateStdApproxSpace(dom)
-domainDisc = CreateStdDisc(approxSpace)
+domainDisc = CreateStdDisc({approxSpace=approxSpace, boundaries=boundaries})
 
 
 
@@ -49,12 +64,8 @@ domainDisc:adjust_solution(u)
 
 -- 3. assemble matrix and rhs
 domainDisc:assemble_linear(A, b)
-SaveMatrixForConnectionViewer(u, A, "Stiffness.mat")
+--SaveMatrixForConnectionViewer(u, A, "Stiffness.mat")
 ev = {}
-function myEVFunction(x, y, t)
-	if nuX==0 or nuY==0 then return (1+math.sin(math.pi*nuX*x))*(1+math.sin(math.pi*y*nuY)) end
-	return math.sin(math.pi*nuX*x)*math.sin(math.pi*y*nuY)
-end
 
 
 
@@ -95,45 +106,48 @@ end
 
 --amg:set_testvectors(tv)
 --amg:set_testvectors( CreateTV({ {1, 1}, {1, 2}, {2,1} }) )
-
-amg = FAMGPreconditioner()
-SetFAMGCommandLineParameters(amg, {
-	--delta=0.030473,
-	delta=0.1,
-	smooths=4,
-	maxLevels=2, maxNodesForBase=1	
-	})
-amg:set_deficit_solve_tolerance(1e-15)
-
-jac = Jacobi(0.6)
-amg:set_presmoother(jac)
-amg:set_postsmoother(jac)
-
-amg:set_matrix_write_path(matrixWritePath)
-amg:set_write_testvectors(true)
-amg:set_delta(0.0303473)
---amg:set_delta(0.03035)
-amg:set_delta(0.1)
-
-amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
-amg:set_testvector_smooths(4)
-amg:set_testvector_smoother(Jacobi(0.6))
-
-
-amg:set_write_f_values(true)
---amg:set_debug_write_all_vectors(true)
-amg:set_fsmoothing(false)
---amg:set_injection_restriction(true)
-
-print(amg:config_string())
-
--- create Linear Solver
-linSolver = LinearSolver(amg, convCheck)
--- choose some solver
-print(amg:config_string())
-
-solver = linSolver
+function createAMG1()
+	local amg = FAMGPreconditioner()
+	SetFAMGCommandLineParameters(amg, {
+		--delta=0.030473,
+		delta=0.1,
+		smooths=4,
+		maxLevels=2, maxNodesForBase=1	
+		})
+	amg:set_deficit_solve_tolerance(1e-15)
 	
+	jac = Jacobi(0.6)
+	amg:set_presmoother(jac)
+	amg:set_postsmoother(jac)
+	
+	matrixWritePath=CreateOutputDirectory("RAMmatrices")
+	amg:set_matrix_write_path(matrixWritePath)
+	amg:set_write_testvectors(true)
+	amg:set_delta(0.0303473)
+	--amg:set_delta(0.03035)
+	amg:set_delta(0.1)
+	
+	amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
+	amg:set_testvector_smooths(4)
+	amg:set_testvector_smoother(Jacobi(0.6))
+	
+	
+	amg:set_write_f_values(true)
+	--amg:set_debug_write_all_vectors(true)
+	amg:set_fsmoothing(false)
+	--amg:set_injection_restriction(true)
+	
+	return amg
+end
+	
+function createLS(amg)
+	-- create Linear Solver
+	linSolver = LinearSolver(amg, convCheck)
+	-- choose some solver
+	print(amg:config_string())
+	
+	solver = linSolver
+end
 --------------------------------------------------------------------------------------------
 
 function solve_sin(x, y)
@@ -154,22 +168,7 @@ function solve_sin(x, y)
 	end
 end
 
-function solve_random()
-	local f = GridFunction(approxSpace)
-	f:set_random(-1, 1)		
-	solver:apply_return_defect(f, ZeroFunction())
-	local avgRate = convCheck:avg_rate()
-	if avgRate < 1e-12 then
-		convMsg = avgRate.." - EXACT!"
-	else
-		convMsg = avgRate
-	end	
-	lastReduction = convCheck:defect()/convCheck:previous_defect()
-	print("solve random avgConv = "..convMsg.." lastReduction = ".. lastReduction )
-	if false and avgRate < 1e-12 then return "EXACT", "EXACT"
-	else 
-	return string.format("%2.2e", avgRate), string.format("%2.2e", lastReduction) 
-	end
-end
-
 checkEVs = util.GetParamNumber("-checkEVs", 5)
+
+local a = CreateSinGridFunction(1, 0)
+SaveVectorForConnectionViewer(a, "10.vec")

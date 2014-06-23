@@ -7,8 +7,8 @@ checkEVs = util.GetParamNumber("-checkEVs", 8)
 if false then
 amg = FAMGPreconditioner()
 end
-amg:set_delta(0.031)
---amg:set_delta(0.1)
+--amg:set_delta(0.031)
+amg:set_delta(10)
 amg:set_max_nodes_for_base(1)
 amg:set_max_levels(2)
 
@@ -103,10 +103,9 @@ function doTVcheck(myTV)
 	output = output.."\n".. s:to_csv("\t") 
 	print("\n")
 end
-doTVcheck( { {3,2}, {4, 5}, {9, 7} })
-do return end
-if false then
+if true then
 doTVcheck({ {0, 0} })
+do return end
 doTVcheck({ {1, 1}})
 
 doTVcheck({ {1, 2}})
