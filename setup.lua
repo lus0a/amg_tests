@@ -100,7 +100,8 @@ function MyLoadGrid(p)
 	s = StringTable()
 	s:set(0, 0, "grid = " .. gridName)
 	s:set(0, 1, "numRefs = " .. numRefs)
-	s:set(1, 0, "numPreRefs = " .. numPreRefs)	
+	s:set(1, 0, "numPreRefs = " .. numPreRefs)
+
 	
 	-- choose algebra
 	InitUG(p.dim, AlgebraType("CPU", p.cpu));	
@@ -165,6 +166,7 @@ function CreateStdDisc(p)
 	 
 	local elemDisc = ConvectionDiffusion("c", "Inner", "fv1")
 	elemDisc:set_diffusion(1.0)
+	--elemDisc:set_diffusion("mydiffusion")
 	elemDisc:set_source("zero_"..dim)
 		
 	local dirichletBND = DirichletBoundary()
@@ -278,7 +280,11 @@ function zero_3(x, y, z, t)
 end
 
 function dirichlet_zero_2(x, y, t)
-	return true, 0
+	if x == 0 then
+		return false, 1
+	else
+		return true, 0
+	end
 end
 
 function dirichlet_zero_3(x, y, z, t)
@@ -291,6 +297,10 @@ end
 
 function dirichlet_one_3(x, y, z, t)
 	return true, 1
+end
+
+function mydiffusion(x, y, t)
+	return 1,0,0,0.01
 end
 
 
@@ -310,6 +320,8 @@ function CreateGridFunction(func, fct)
 	--smooth(gf, Jacobi(0.6), 4)
 	return gf
 end
+
+
 
 function ZeroFunction()
 	local gf = GridFunction(approxSpace)
