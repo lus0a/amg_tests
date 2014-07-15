@@ -80,7 +80,9 @@ amg:set_presmoother(sgs)
 amg:set_postsmoother(sgs)
 
 matrixWritePath=CreateOutputDirectory("RAMmatrices")
-amg:set_matrix_write_path(matrixWritePath)
+if util.HasParamOption("-writeStats") then
+	amg:set_matrix_write_path(matrixWritePath)
+end
 amg:set_write_testvectors(true)
 
 amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
