@@ -79,8 +79,9 @@ sgs = SymmetricGaussSeidel()
 amg:set_presmoother(sgs)
 amg:set_postsmoother(sgs)
 
-matrixWritePath=CreateOutputDirectory("RAMmatrices")
+
 if util.HasParamOption("-writeMatrices") then
+	matrixWritePath=CreateOutputDirectory("RAMmatrices")
 	amg:set_matrix_write_path(matrixWritePath)
 end
 amg:set_write_testvectors(true)
