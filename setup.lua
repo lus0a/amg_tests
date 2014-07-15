@@ -140,6 +140,15 @@ function MyLoadGrid(p)
 	return dom
 end
 
+function getHome()
+	local p=os.getenv("HOME")
+	if p == nil then
+		return "."
+	else
+		return p
+	end
+end
+
 function CreateOutputDirectory(name, mbsize)
 	local thePath
 	name = "/"..name.."/"
@@ -147,7 +156,7 @@ function CreateOutputDirectory(name, mbsize)
 		if mbsize == nil then mbsize = 1024 end
 		thePath = util.createMacRAMDisk("ug4RAMDisk", mbsize)..name		
 	else
-		thePath = os.getenv("HOME")..name
+		thePath = getHome()..name
 	end
 	CreateDirectory(thePath) 
 	return thePath		
@@ -173,25 +182,39 @@ function CreateStdApproxSpace(dom)
 	return approxSpace
 end
 
+
 function CreateStdDisc(p)
-	local dim = approxSpace:get_dim()
+	local domainDisc = DomainDiscretization(p.approxSpace)
+	local dim = p.approxSpace:get_dim()
 	 
-	local elemDisc = ConvectionDiffusion("c", "Inner", "fv1")
-	elemDisc:set_diffusion(1.0)
-	--elemDisc:set_diffusion("mydiffusion")
-	elemDisc:set_source("zero_"..dim)
+	 if p.diffusion == nil then
+	 	local elemDisc = ConvectionDiffusion("c", "Inner", "fv1")
+		elemDisc:set_diffusion(1.0)
+		--elemDisc:set_diffusion("mydiffusion")
+		elemDisc:set_source("zero_"..dim)
+		domainDisc:add(elemDisc)
+	else
+		for i, v in pairs(p.diffusion) do
+			local elemDisc = ConvectionDiffusion("c", i, "fv1")
+			elemDisc:set_diffusion(v)
+			--elemDisc:set_diffusion("mydiffusion")
+			elemDisc:set_source("zero_"..dim)
+			domainDisc:add(elemDisc)
+		end
+	end
 		
 	local dirichletBND = DirichletBoundary()
 	for i,v in pairs(p.boundaries) do
 		dirichletBND:add("dirichlet_zero_"..dim, "c", v)
 	end
 	
-	local domainDisc = DomainDiscretization(p.approxSpace)
-	domainDisc:add(elemDisc)
+	
+	
 	domainDisc:add(dirichletBND)
 	
 	return domainDisc
 end
+
 
 function CreateLEDisc(parameters)
 	local dom = parameters.Domain
