@@ -17,24 +17,39 @@ InitSignals()
 dim = util.GetParamNumber("-dim", 2)
 outdir = util.GetParam("-outdir", nil, "output directory")
 
-if dim == 3 then
-gridName = util.GetParam("-grid", "unit_square_01/unit_cube_01_hex_4x4x4.ugx")
-dom = MyLoadGrid({ dim=3, gridName = gridName, requiredSubsets = requiredSubsets} )
+
+if true then
+
+	requiredSubsets = {"Inner", "Boundary"}
+	
+	if dim == 3 then
+	gridName = util.GetParam("-grid", "unit_square_01/unit_cube_01_hex_4x4x4.ugx")
+	dom = MyLoadGrid({ dim=3, gridName = gridName, requiredSubsets = requiredSubsets} )
+	else
+	gridName = util.GetParam("-grid", "unit_square/unit_square_quads_8x8.ugx")
+	dom = MyLoadGrid({ dim=2, gridName = gridName, requiredSubsets = requiredSubsets} )
+	end
+	
+	
+	boundaries = {"Boundary"}
+	
+	util.CheckAndPrintHelp("");
+	
+	
+	approxSpace = CreateStdApproxSpace(dom)
+	domainDisc = CreateStdDisc({approxSpace=approxSpace, boundaries=boundaries})
 else
-gridName = util.GetParam("-grid", "unit_square/unit_square_quads_8x8.ugx")
-dom = MyLoadGrid({ dim=2, gridName = gridName, requiredSubsets = requiredSubsets} )
 
+	gridName = util.GetParam("-grid", "../skin/2D/geometry/brick/skin2d.aniso.ugx")
+	requiredSubsets = {"LIP", "COR", "BOTTOM_SC", "TOP_SC"}
+	dom = MyLoadGrid({ dim=2, gridName = gridName, requiredSubsets = requiredSubsets} )
+	boundaries = {"TOP_SC", "BOTTOM_SC"}
+
+	approxSpace = CreateStdApproxSpace(dom)
+	domainDisc = CreateStdDisc({approxSpace=approxSpace, boundaries=boundaries,
+		diffusion={LIP=1, COR=10}
+		})
 end
-
-
-requiredSubsets = {"Inner", "Boundary"}
-boundaries = {"Boundary"}
-
-util.CheckAndPrintHelp("");
-
-
-approxSpace = CreateStdApproxSpace(dom)
-domainDisc = CreateStdDisc({approxSpace=approxSpace, boundaries=boundaries})
 
 	
 
@@ -81,8 +96,11 @@ amg:set_postsmoother(sgs)
 
 
 if util.HasParamOption("-writeMatrices") then
-	matrixWritePath=CreateOutputDirectory("RAMmatrices")
+	--matrixWritePath=CreateOutputDirectory("RAMmatrices")
+	matrixWritePath = "/Users/mrupp/matrices/"
 	amg:set_matrix_write_path(matrixWritePath)
+	amg:set_write_f_values(true)
+	--amg:set_debug_write_all_vectors(true)
 end
 amg:set_write_testvectors(true)
 
@@ -91,15 +109,16 @@ amg:set_testvector_smooths(0)
 amg:set_testvector_smoother(Jacobi(0.6))
 
 amg:set_delta(0.4)
---amg:set_use_constant_if_failed(true)
+
 amg:set_XC_LE_griebel(true)
-amg:set_write_f_values(true)
---amg:set_debug_write_all_vectors(true)
+
 amg:set_fsmoothing(true)
+
 amg:set_testvectors(TestvectorsLinear2d())
 --amg:set_testvectors(TestvectorsConstant())
+
 --amg:set_verbose(5)
---amg:add_watchnode(0,0)
+--amg:add_watchnode(0,6228)
 --amg:add_watchnode(0, 1084)
 --amg:add_watchnode(1, 1084)
 --amg = RSAMGPreconditioner()
