@@ -80,7 +80,7 @@ amg:set_presmoother(sgs)
 amg:set_postsmoother(sgs)
 
 matrixWritePath=CreateOutputDirectory("RAMmatrices")
-if util.HasParamOption("-writeStats") then
+if util.HasParamOption("-writeMatrices") then
 	amg:set_matrix_write_path(matrixWritePath)
 end
 amg:set_write_testvectors(true)
