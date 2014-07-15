@@ -63,7 +63,7 @@ domainDisc:adjust_solution(u)
 -- 3. assemble matrix and rhs
 write("Assembling...")
 domainDisc:assemble_linear(A, b)
-SaveMatrixForConnectionViewer(u, A, "Stiffness.mat")
+--SaveMatrixForConnectionViewer(u, A, "Stiffness.mat")
 print(" done.")
 
 amg = FAMGPreconditioner()
@@ -80,7 +80,7 @@ amg:set_presmoother(sgs)
 amg:set_postsmoother(sgs)
 
 matrixWritePath=CreateOutputDirectory("RAMmatrices")
-amg:set_matrix_write_path(matrixWritePath)
+--amg:set_matrix_write_path(matrixWritePath)
 amg:set_write_testvectors(true)
 
 amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
@@ -91,8 +91,8 @@ amg:set_delta(0.1)
 amg:set_write_f_values(true)
 --amg:set_debug_write_all_vectors(true)
 amg:set_fsmoothing(true)
-amg:set_testvectors(TestvectorsLinear2d())
---amg:set_testvectors(TestvectorsConstant())
+--amg:set_testvectors(TestvectorsLinear2d())
+amg:set_testvectors(TestvectorsConstant())
 --amg:set_verbose(5)
 --amg:add_watchnode(0,0)
 --amg:add_watchnode(0, 1084)
@@ -109,7 +109,7 @@ print("Init Solver...")
 
 --SetDebugLevel(debugID.AMG, 5)
 --SetDebugLevel(debugID.AMG.FAMG.Interpolation, 0)
-
+amg:set_verbose(5)
 
 
 solver:init(A)
@@ -140,8 +140,7 @@ if ProcRank() == 0 then
 	 
 	{ "date", os.date("y%Ym%md%d") },
 	{ "SVN Revision", GetSVNRevision()},
-	{"host",GetBuildHostname()},
-	{"filename", filename},
+	{"host", GetBuildHostname()},
 	{"commandline", util.GetCommandLine() } }
 	
 	table.append(stats, getAMGStats(amg)) 
@@ -153,7 +152,7 @@ if ProcRank() == 0 then
 	
 	util.printStats(stats)
 	if outdir ~= nil  then	
-		util.writeFileStats(stats, outdir.."stats.txt")
+		util.writeFileStats(stats, outdir.."/stats.txt")
 	end
 
 end

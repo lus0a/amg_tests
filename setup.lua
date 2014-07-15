@@ -91,7 +91,7 @@ function solve_random_d(solver, approxSpace)
 	local avgRate = convCheck:avg_rate()
 	local lastReduction = convCheck:defect()/convCheck:previous_defect()
 	local timeSolveS = GetClockS()-tBeginS
-	return {avgRate=avgRate, lastReduction=lastReduction, timeSolveS=timeSolveS}	
+	return {avgRate=avgRate, lastReduction=lastReduction, timeSolveS=timeSolveS, steps=convCheck:step()}	
 end
 
 function MyLoadGrid(p)
