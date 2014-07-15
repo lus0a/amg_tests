@@ -149,6 +149,8 @@ if ProcRank() == 0 then
 	flattenTable(sgs02, "sgs02", stats)
 	flattenTable(sgs32, "sgs32", stats)
 	
+	flattenTable(getAMGLevelTable(amg), "level", stats)
+	
 	util.printStats(stats)
 	if outdir ~= nil  then	
 		util.writeFileStats(stats, outdir.."stats.txt")

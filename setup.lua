@@ -449,3 +449,20 @@ function solve_amg(smoother, numSmooths, name)
 	ret.lin = solve_lin(LinearSolver(), amg, "LS("..name..")")
 	return ret
 end
+
+function getAMGLevelTable(amg)
+	local res = {}
+	local levs = amg:get_used_levels()-1
+	if levs > 7 then
+		levs = 7
+	end
+	for i=0,levs do
+		li = amg:get_level_information(i)
+		res[i+1] = li:get_nr_of_nodes()
+	end
+	for i=levs+1, 7 do
+		res[i+1] = 0
+	end
+	return res
+
+end
