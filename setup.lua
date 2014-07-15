@@ -22,7 +22,7 @@ end
 function SetFAMGCommandLineParameters(amg, p)
 	if false then amg = FAMGPreconditioner() end
 	 p.smooths = util.GetParamNumber("-amgSmooths", p.smooths or 2)
-	 p.maxLevels = util.GetParamNumber("-amgMaxLevels", p.maxLevels or 8)
+	 p.maxLevels = util.GetParamNumber("-amgMaxLevels", p.maxLevels or 30)
 	 p.maxNodesForBase = util.GetParamNumber("-amgMaxNodesForBase", p.maxNodesForBase or 1024)
 	 p.bTwoLevel = p.bTwoLevel or util.HasParamOption("-amgTwoLevel")
 	 if p.bTwoLevel then
