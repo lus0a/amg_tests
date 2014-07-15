@@ -15,6 +15,7 @@ ug_load_script("setup.lua")
 InitSignals()
 
 dim = util.GetParamNumber("-dim", 2)
+outdir = util.GetParam("-outdir", nil, "output directory")
 
 if dim == 3 then
 gridName = util.GetParam("-grid", "unit_square_01/unit_cube_01_hex_4x4x4.ugx")
@@ -86,17 +87,20 @@ amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
 amg:set_testvector_smooths(0)
 amg:set_testvector_smoother(Jacobi(0.6))
 
-
+amg:set_delta(0.1)
 amg:set_write_f_values(true)
 --amg:set_debug_write_all_vectors(true)
 amg:set_fsmoothing(true)
 amg:set_testvectors(TestvectorsLinear2d())
 --amg:set_testvectors(TestvectorsConstant())
-amg:set_verbose(5)
+--amg:set_verbose(5)
+--amg:add_watchnode(0,0)
+--amg:add_watchnode(0, 1084)
+--amg:add_watchnode(1, 1084)
 --amg = RSAMGPreconditioner()
 
-amg = RSAMGPreconditioner()
-convCheck = ConvCheck(30, 1e-12, 1e-10)
+--amg = RSAMGPreconditioner()
+convCheck = ConvCheck(30, 1e-12, 1e-14)
 linSolver = LinearSolver(amg, convCheck)
 solver = linSolver
 
@@ -106,6 +110,8 @@ print("Init Solver...")
 --SetDebugLevel(debugID.AMG, 5)
 --SetDebugLevel(debugID.AMG.FAMG.Interpolation, 0)
 
+
+
 solver:init(A)
 
 lis=amg:level_information_str()
@@ -113,45 +119,41 @@ lis=amg:level_information_str()
 print("Solve...")
 
 
-solve_random(solver, approxSpace)
+--solve_random(solver, approxSpace)
 
 amg:set_one_init(true)
 
-function solve_lin(linSolver, amg, name)
-	linSolver:set_convergence_check(convCheck)	
-	linSolver:set_preconditioner(amg)
-	linSolver:init(A)
-	
-	solve_random(linSolver, approxSpace)
-	
-end
-
-function solve_amg(smoother, numSmooths, name)
+sgs02 = solve_amg(SymmetricGaussSeidel(), 2, "SGSx02")
+sgs32 = solve_amg(SymmetricGaussSeidel(), 32, "SGSx32")
 
 
-	amg:set_presmoother(smoother)
-	amg:set_postsmoother(smoother)
-	amg:set_num_presmooth(numSmooths)
-	amg:set_num_postsmooth(numSmooths)
+if ProcRank() == 0 then
+	stats = {
 	
-	cgSolver = BiCGStab()
-	cgSolver:set_preconditioner(amg)	
-	amg:init_smoothers()
+	{ "procs", NumProcs() },
+	--{ "numPreRefs", numPreRefs},
+	{ "numRefs", numRefs },
+	{ "dim", dim},
+	{ "gridName", gridName},
+	{ "main [ms]", GetProfileNode("main"):get_avg_total_time_ms()},
+	{ "perform_refinement [ms]", GetProfileNode("perform_refinement"):get_avg_total_time_ms()},
+	 
+	{ "date", os.date("y%Ym%md%d") },
+	{ "SVN Revision", GetSVNRevision()},
+	{"host",GetBuildHostname()},
+	{"filename", filename},
+	{"commandline", util.GetCommandLine() } }
 	
-	print(name..": "..numSmooths.."x "..smoother:config_string())
+	table.append(stats, getAMGStats(amg)) 
 	
+	flattenTable(sgs02, "sgs02", stats)
+	flattenTable(sgs32, "sgs32", stats)
 	
-	--ScaleDomain(dom, MakeVec(0,0,0), MakeVec(1/stretchX, 1/stretchY, 1.0))
-	--SaveVectorForConnectionViewer(u, "amg_u_linear.vec")
-	--ScaleDomain(dom, MakeVec(0,0,0), MakeVec(stretchX, stretchY, 1.0))
-		
-	print("CG, "..name)
-	solve_lin(CG(), amg, "CG("..name..")")
-	print("LinearSolver, "..name)
-	solve_lin(LinearSolver(), amg, "LS("..name..")")	
-	
+	util.printStats(stats)
+	if outdir ~= nil  then	
+		util.writeFileStats(stats, outdir.."stats.txt")
+	end
 
 end
+	
 
-solve_amg(SymmetricGaussSeidel(), 2, "SGSx02")
-solve_amg(SymmetricGaussSeidel(), 32, "SGSx32")

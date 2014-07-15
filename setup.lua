@@ -18,6 +18,7 @@ function NeededParameters(p, parameters)
 end
 
 
+
 function SetFAMGCommandLineParameters(amg, p)
 	if false then amg = FAMGPreconditioner() end
 	 p.smooths = util.GetParamNumber("-amgSmooths", p.smooths or 2)
@@ -65,21 +66,32 @@ function last_random_conv(solver, approxSpace)
 end
 
 function solve_random(solver, approxSpace)
+	local avgRate
+	local lastReduction
+	local convMsg
+  	local res = solve_random_d(solver, approxSpace)
+  	if res.avgRate < 1e-12 then
+		convMsg = res.avgRate.." - EXACT!"
+	else
+		convMsg = res.avgRate
+	end	
+  	
+	print("solve random avgConv = "..convMsg.." lastReduction = ".. res.lastReduction )
+	if false and res.avgRate < 1e-12 then return "EXACT", "EXACT"
+	else 
+	return string.format("%2.2e", res.avgRate), string.format("%2.2e", res.lastReduction) 
+	end
+end
+
+function solve_random_d(solver, approxSpace)
+	local tBeginS = GetClockS()
 	local f = GridFunction(approxSpace)
 	f:set_random(-1, 1)		
 	solver:apply_return_defect(f, ZeroFunction())
 	local avgRate = convCheck:avg_rate()
-	if avgRate < 1e-12 then
-		convMsg = avgRate.." - EXACT!"
-	else
-		convMsg = avgRate
-	end	
-	lastReduction = convCheck:defect()/convCheck:previous_defect()
-	print("solve random avgConv = "..convMsg.." lastReduction = ".. lastReduction )
-	if false and avgRate < 1e-12 then return "EXACT", "EXACT"
-	else 
-	return string.format("%2.2e", avgRate), string.format("%2.2e", lastReduction) 
-	end
+	local lastReduction = convCheck:defect()/convCheck:previous_defect()
+	local timeSolveS = GetClockS()-tBeginS
+	return {avgRate=avgRate, lastReduction=lastReduction, timeSolveS=timeSolveS}	
 end
 
 function MyLoadGrid(p)
@@ -373,4 +385,67 @@ end
 function myEVFunction(x, y, t)
 	if nuX==0 or nuY==0 then return (1+math.sin(math.pi*nuX*x))*(1+math.sin(math.pi*y*nuY)) end
 	return math.sin(math.pi*nuX*x)*math.sin(math.pi*y*nuY)
+end
+
+
+function flattenTable(tab, name, res)
+	
+	local tName = ""
+	if name ~= nil then
+		tName = name.."."
+	end
+	if type(tab) == "table" then
+		for i, v in pairs(tab) do
+			flattenTable(v, tName..i, res)
+		end
+		return res
+	else
+		table.insert(res, {name, tab})
+	end
+end
+	
+function getAMGStats(amg)
+	return 
+	{ { "ndofs", amg:get_level_information(0):get_nr_of_nodes() },
+	{ "tSetupAmg [s]", amg:get_timing_whole_setup_ms()/1000},
+	
+	{ "amg_base_preprocess [ms]", GetProfileNode("amg_base_preprocess"):get_avg_total_time_ms()},
+	{ "amg_createDirectSolver [ms]", GetProfileNode("amg_createDirectSolver"):get_avg_total_time_ms()},
+		
+	{ "c_A", amg:get_operator_complexity()},
+	{ "c_G", amg:get_grid_complexity()},
+	{ "used Levels", amg:get_used_levels()},
+	{ "maxBase", amg:get_max_nodes_for_base() },
+	{ "delta", amg:get_delta() }
+	}	
+end
+
+function solve_lin(linSolver, amg, name)
+	linSolver:set_convergence_check(convCheck)	
+	linSolver:set_preconditioner(amg)
+	linSolver:init(A)
+	return solve_random_d(linSolver, approxSpace)
+	
+end
+
+function solve_amg(smoother, numSmooths, name)
+
+
+	amg:set_presmoother(smoother)
+	amg:set_postsmoother(smoother)
+	amg:set_num_presmooth(numSmooths)
+	amg:set_num_postsmooth(numSmooths)
+	
+	cgSolver = BiCGStab()
+	cgSolver:set_preconditioner(amg)	
+	amg:init_smoothers()
+	
+	print(name..": "..numSmooths.."x "..smoother:config_string())
+		
+	print("CG, "..name)
+	local ret = {}
+	ret.cg = solve_lin(CG(), amg, "CG("..name..")")
+	print("LinearSolver, "..name)
+	ret.lin = solve_lin(LinearSolver(), amg, "LS("..name..")")
+	return ret
 end
