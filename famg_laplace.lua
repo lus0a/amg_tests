@@ -89,7 +89,7 @@ amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
 amg:set_testvector_smooths(0)
 amg:set_testvector_smoother(Jacobi(0.6))
 
-amg:set_delta(0.1)
+amg:set_delta(0.4)
 --amg:set_use_constant_if_failed(true)
 amg:set_XC_LE_griebel(true)
 amg:set_write_f_values(true)
@@ -161,4 +161,4 @@ if ProcRank() == 0 then
 
 end
 	
-
+WriteProfileData("pd.pdxml")
