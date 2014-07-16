@@ -1,7 +1,7 @@
 -- hello
 
 ug_load_script("laplace_sin_filtering.lua")
-
+outdir = util.GetParam("-outdir")
 
 checkEVs = util.GetParamNumber("-checkEVs", 8)
 function createAMG()

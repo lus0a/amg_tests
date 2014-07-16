@@ -5,7 +5,7 @@
 --PrintBuildConfiguration()
 
 ug_load_script("../setup.lua")
-
+outdir = util.GetParam("-outdir")
 
 big = false
 --big = true
