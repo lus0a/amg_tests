@@ -63,7 +63,9 @@ domainDisc:adjust_solution(u)
 
 -- 3. assemble matrix and rhs
 domainDisc:assemble_linear(A, b)
+if util.HasParamOption("-writeMatrices") then
 SaveMatrixForConnectionViewer(u, A, "Stiffness.mat")
+end
 ev = {}
 
 
@@ -169,5 +171,5 @@ end
 
 checkEVs = util.GetParamNumber("-checkEVs", 5)
 
-local a = CreateSinGridFunction(1, 0)
-SaveVectorForConnectionViewer(a, "10.vec")
+--local a = CreateSinGridFunction(1, 0)
+--SaveVectorForConnectionViewer(a, "10.vec")
