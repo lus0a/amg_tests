@@ -181,7 +181,7 @@ if ProcRank() == 0 then
 	
 	util.printStats(stats)
 	if outdir ~= nil  then	
-		util.writeFileStats(stats, outdir.."/stats.txt")
+		util.writeFileStats(stats, outdir.."/filtering_stats.txt")
 	end
 
 end
