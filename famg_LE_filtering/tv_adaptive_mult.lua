@@ -201,7 +201,10 @@ for filteringStep=1,20 do
 	
 	if filteringStep ~= 1 then amgRes = solve_random_d(solver, approxSpace) end
 	LIPRes = solve_random_d(lsLIP, approxSpace)	
-	if LIPRes.lastReduction < 0.1 then break end
+	if LIPRes.lastReduction < 0.1 then
+		filteringSteps = filteringStep
+		break 
+	end
 	
 	for k=1,numVecs do
 		v[k] = RandomFunction()
@@ -241,7 +244,7 @@ if ProcRank() == 0 then
 	{ "SVN Revision", GetSVNRevision()},
 	{"host", GetBuildHostname()},
 	{"commandline", util.GetCommandLine() },	
-	{"filteringSteps", filteringStep},
+	{"filteringSteps", filteringSteps}
 	}
 	
 	flattenTable(LIPRes, "product", stats)
