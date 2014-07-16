@@ -11,7 +11,7 @@ function createAMG()
 	end
 	--amg:set_delta(0.031)
 	amg:set_delta(0.3)
-	amg:set_max_nodes_for_base(1)
+	amg:set_max_nodes_for_base(1000)
 	amg:set_max_levels(5)
 	
 	numSmooths = 4 --util.GetParamNumber("-amgSmooths", 2)
@@ -19,7 +19,7 @@ function createAMG()
 	amg:set_num_presmooth(numSmooths)
 	amg:set_num_postsmooth(numSmooths)
 	
-	smoother = Jacobi(0.6)
+	smoother = SymmetricGaussSeidel()
 	amg:set_presmoother(smoother)
 	amg:set_postsmoother(smoother)
 	

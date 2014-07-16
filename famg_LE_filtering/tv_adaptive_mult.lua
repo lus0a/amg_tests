@@ -112,7 +112,7 @@ function createAMG()
 	--amg:set_delta(0.031)
 	amg:set_delta(0.3)
 	amg:set_max_nodes_for_base(1000)
-	amg:set_max_levels(2)
+	amg:set_max_levels(5)
 	
 	numSmooths = 4 --util.GetParamNumber("-amgSmooths", 2)
 	
