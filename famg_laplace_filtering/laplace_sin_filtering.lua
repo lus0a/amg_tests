@@ -14,21 +14,20 @@ ug_load_script("../setup.lua")
 
 InitSignals()
 
---big = true
 
-if big == true then
+if util.HasParamOption("-33k") then
 	gridName = util.GetParam("-grid", "amgtests/unstructured_33k.ugx")
 	requiredSubsets = {"Inner", "Left", "Right", "Top", "Bottom"}
 	boundaries = {"Bottom"}
-else
+elseif util.HasParamOption("-3k") then
 	gridName = util.GetParam("-grid", "amgtests/unstructured_3k.ugx")
 	requiredSubsets = {"Inner", "Left", "Right", "Top", "Bottom"}
 	boundaries = {"Bottom"}
+else
+	gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_quads_2x2.ugx")
+	requiredSubsets = {"Inner", "Boundary"}
+	boundaries = {"Boundary"}
 end
-
-gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_quads_2x2.ugx")
-requiredSubsets = {"Inner", "Boundary"}
-boundaries = {"Boundary"}
 
 util.CheckAndPrintHelp("");
 
@@ -64,7 +63,7 @@ domainDisc:adjust_solution(u)
 
 -- 3. assemble matrix and rhs
 domainDisc:assemble_linear(A, b)
---SaveMatrixForConnectionViewer(u, A, "Stiffness.mat")
+SaveMatrixForConnectionViewer(u, A, "Stiffness.mat")
 ev = {}
 
 
@@ -110,7 +109,7 @@ function createAMG1()
 	local amg = FAMGPreconditioner()
 	SetFAMGCommandLineParameters(amg, {
 		--delta=0.030473,
-		delta=0.1,
+		delta=0.03,
 		smooths=4,
 		maxLevels=2, maxNodesForBase=1	
 		})

@@ -123,14 +123,16 @@ smooth(v1, Jacobi(0.8), 4, A)
 lip = LinearIteratorProduct()
 lsLIP = LinearSolver(lip, convCheck)
 
-for i=1,20 do
+for filteringStep=1,20 do
 	amg = createAMG()
 	amg:set_one_init(true)
 	createLS(amg)
+			
+	if util.HasParamOption("-writeMatrices") then
+		SaveVectorForConnectionViewer(v1, "v"..filteringStep..".vec")
+		amg:set_matrix_write_path(CreateOutputDirectory("RAMmatrices/"..filteringStep))
+	end
 	
-	amg:set_matrix_write_path(CreateOutputDirectory("RAMmatrices/"..i))
-	
-	SaveVectorForConnectionViewer(v1, "v"..i..".vec")
 	amg:set_testvectors(TestvectorsExternal({v1}))
 	solver:init(A)
 
@@ -141,15 +143,51 @@ for i=1,20 do
 	
 	lsLIP:init(A)
 	
-	last = last_random_conv(solver, approxSpace)
-	last = last_random_conv(lsLIP, approxSpace)	
-	if last < 0.1 then break end
+	if filteringStep ~= 1 then amgRes = solve_random_d(solver, approxSpace) end
+	LIPRes = solve_random_d(lsLIP, approxSpace)	
+	if LIPRes.lastReduction < 0.1 then break end
 	
 	v1 = RandomFunction()
 	smooth(v1, lip, 10, A)
 	VecScaleAssign(v1, 1/VecNorm(v1), v1)	
 	
 end
+
+
+
+if ProcRank() == 0 then
+	stats = {
+	
+	{ "procs", NumProcs() },
+	{ "Type", "laplace" },
+	{ "numVecs", 1},
+	--{ "numPreRefs", numPreRefs},
+	{ "numRefs", numRefs },
+	{ "dim", dim},
+	{ "gridName", gridName},
+	{ "main [ms]", GetProfileNode("main"):get_avg_total_time_ms()},
+	{ "perform_refinement [ms]", GetProfileNode("perform_refinement"):get_avg_total_time_ms()},
+	 
+	{ "date", os.date("y%Ym%md%d.%H:%M:%S")},
+	{ "SVN Revision", GetSVNRevision()},
+	{"host", GetBuildHostname()},
+	{"commandline", util.GetCommandLine() },	
+	{"filteringSteps", filteringStep},
+	}
+	
+	flattenTable(LIPRes, "product", stats)
+	flattenTable(amgRes, "lastAMG", stats)
+	table.append(stats, getAMGStats(amg))
+	
+	util.printStats(stats)
+	if outdir ~= nil  then	
+		util.writeFileStats(stats, outdir.."/stats.txt")
+	end
+
+end
+	
+WriteProfileData("pd.pdxml")
+
 
 do return end
 

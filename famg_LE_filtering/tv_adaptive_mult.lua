@@ -10,13 +10,15 @@ ug_load_script("../setup.lua")
 big = false
 --big = true
 
-if big == true then
+if util.HasParamOption("-33k") then
 	gridName = util.GetParam("-grid", "amgtests/unstructured_33k.ugx")
-else
+elseif util.HasParamOption("-3k") then
 	gridName = util.GetParam("-grid", "amgtests/unstructured_3k.ugx")
+elseif util.HasParamOption("-special") then
+	gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2_4bnd2.ugx")
+else
+	gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2_4bnd.ugx")
 end
-
-gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2_4bnd2.ugx")
 
 util.CheckAndPrintHelp("");
 
@@ -75,6 +77,7 @@ function createAMG1()
 	amg:set_fsmoothing(false)
 	--amg:set_injection_restriction(true)
 	amg:set_write_testvectors(true)
+	
 	return amg
 end
 
@@ -160,7 +163,7 @@ convCheck:set_verbose(true)
 lip = LinearIteratorProduct()
 lsLIP = LinearSolver(lip, convCheck)
 
-numVecs = 2
+numVecs = util.GetParamNumber("-numVecs", 2)
 
 v={}
 for k=1,numVecs do
@@ -169,20 +172,23 @@ for k=1,numVecs do
 end
 
 
-for i=1,20 do
+for filteringStep=1,20 do
 	print("--------------------------------------------------------")
-	print("                        "..i)
+	print("                        "..filteringStep)
 	print("--------------------------------------------------------")
 	
-	for k=1,numVecs do
-		SaveVectorForConnectionViewer(v[k], "v_"..i.."."..k..".vec")
-	end
+	
 
 	amg = createAMG()
 	amg:set_one_init(true)
 	createLS(amg)
 	
-	amg:set_matrix_write_path(CreateOutputDirectory("RAMmatrices/"..i))
+	if util.HasParamOption("-writeMatrices") then
+		for k=1,numVecs do
+			SaveVectorForConnectionViewer(v[k], "v_"..filteringStep.."."..k..".vec")
+		end
+		amg:set_matrix_write_path(CreateOutputDirectory("RAMmatrices/"..filteringStep))
+	end
 	
 	amg:set_testvectors(TestvectorsExternal(v))
 	solver:init(A)
@@ -193,9 +199,9 @@ for i=1,20 do
 	
 	lsLIP:init(A)
 	
-	if i ~= 1 then last = last_random_conv(solver, approxSpace) end
-	last = last_random_conv(lsLIP, approxSpace)	
-	if last < 0.1 then break end
+	if filteringStep ~= 1 then amgRes = solve_random_d(solver, approxSpace) end
+	LIPRes = solve_random_d(lsLIP, approxSpace)	
+	if LIPRes.lastReduction < 0.1 then break end
 	
 	for k=1,numVecs do
 		v[k] = RandomFunction()
@@ -217,4 +223,37 @@ for i=1,20 do
 	end end
 	
 end
+
+if ProcRank() == 0 then
+	stats = {
+	
+	{ "procs", NumProcs() },
+	{ "Type", "LE" },
+	{ "numVecs", numVecs},
+	--{ "numPreRefs", numPreRefs},
+	{ "numRefs", numRefs },
+	{ "dim", dim},
+	{ "gridName", gridName},
+	{ "main [ms]", GetProfileNode("main"):get_avg_total_time_ms()},
+	{ "perform_refinement [ms]", GetProfileNode("perform_refinement"):get_avg_total_time_ms()},
+	 
+	{ "date", os.date("y%Ym%md%d.%H:%M:%S")},
+	{ "SVN Revision", GetSVNRevision()},
+	{"host", GetBuildHostname()},
+	{"commandline", util.GetCommandLine() },	
+	{"filteringSteps", filteringStep},
+	}
+	
+	flattenTable(LIPRes, "product", stats)
+	flattenTable(amgRes, "lastAMG", stats)
+	table.append(stats, getAMGStats(amg))
+	
+	util.printStats(stats)
+	if outdir ~= nil  then	
+		util.writeFileStats(stats, outdir.."/stats.txt")
+	end
+
+end
+	
+WriteProfileData("pd.pdxml")
 
