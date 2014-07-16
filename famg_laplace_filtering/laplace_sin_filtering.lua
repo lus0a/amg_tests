@@ -121,8 +121,10 @@ function createAMG1()
 	amg:set_presmoother(jac)
 	amg:set_postsmoother(jac)
 	
-	matrixWritePath=CreateOutputDirectory("RAMmatrices")
-	amg:set_matrix_write_path(matrixWritePath)
+	if util.HasParamOption("-writeMatrices") then
+		matrixWritePath=CreateOutputDirectory("RAMmatrices")
+		amg:set_matrix_write_path(matrixWritePath)
+	end
 	amg:set_write_testvectors(true)
 	amg:set_delta(0.0303473)
 	--amg:set_delta(0.03035)
