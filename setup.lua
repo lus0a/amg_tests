@@ -12,12 +12,36 @@ function SetDefaultParameters(tableParameter, default)
 end
 
 function NeededParameters(p, parameters)
-	for i, v in ipairs(parameters) do
-		ug_assert(p.v ~=nil)	
+	for i, v in pairs(parameters) do
+		if p[v] == nil then
+			print("\ntable ")
+			print(p)
+			print("needs parameter \""..v.."\" !")
+			ug_assert(false, "table needs parameter \""..v.."\" !")
+		end	
 	end
 end
 
 
+function GetFAMGTestvectorList(dim)
+	if dim == 2 then
+		return	
+		{	const = TestvectorsConstant(), 
+			lin = TestvectorsLinear2d(), 
+			le = TestvectorsLinearElasticity2d() }		
+	elseif dim == 3 then
+		return
+		{ 	const = TestvectorsConstant(),
+			lin = TestvectorsLinear3d(),
+			le = TestvectorsLinearElasticity3d() }
+	else
+		ug_assert(false, "dim = "..tostring(dim).." not supported")
+	end
+end
+
+function GetFAMGTestvectorFromCommandLine(dim)
+	return util.GetParamFromList("-amgTV", "const", GetFAMGTestvectorList(dim))
+end
 
 function SetFAMGCommandLineParameters(amg, p)
 	if false then amg = FAMGPreconditioner() end
@@ -35,8 +59,14 @@ function SetFAMGCommandLineParameters(amg, p)
 	else
 		amg:set_cycle_type(1)
 	end
-		 
-	p.iTestvectorSmooths = util.GetParamNumber("-amgTestvectorSmooths", p.iTestvectorSmooths or 4)
+		
+	amg:set_testvectors(GetFAMGTestvectorFromCommandLine(dim))
+	if util.HasParamOption("-constIfFailed") then
+		amg:set_use_constant_if_failed(true)
+	end
+				
+	
+	p.iTestvectorSmooths = util.GetParamNumber("-amgTestvectorSmooths", p.iTestvectorSmooths or 0)
 	amg:set_testvector_smooths(p.iTestvectorSmooths)
 	amg:set_deficit_solve_tolerance(1e-12)
 
@@ -53,16 +83,11 @@ function SetFAMGCommandLineParameters(amg, p)
 	uuu = GridFunction(approxSpace)
 	uuuu = GridFunctionPositionProvider(uuu)
 	amg:set_position_provider( uuuu )
-	amg:set_indirect_interpolation(false) 	
+	amg:set_indirect_interpolation(util.HasParamOption("-amgIndirectInterpolation")) 	
  end
 
 function last_random_conv(solver, approxSpace)
-	local f = GridFunction(approxSpace)
-	f:set_random(-1, 1)		
-	solver:apply_return_defect(f, ZeroFunction())
-	local lastReduction= convCheck:defect()/convCheck:previous_defect()
-	print("solve random lastReduction = ".. lastReduction )
-	return lastReduction
+	return solve_random_d(solver, approxSpace).lastReduction
 end
 
 function solve_random(solver, approxSpace)
@@ -83,15 +108,28 @@ function solve_random(solver, approxSpace)
 	end
 end
 
+function GetConvCheckTable(convCheck, tBeginS)
+	local avgRate = convCheck:avg_rate()
+	local lastReduction = convCheck:defect()/convCheck:previous_defect()
+	local timeSolveS
+	if tBeginS then
+		timeSolveS = GetClockS()-tBeginS
+	else
+		timeSolveS =nil
+	end	
+	return {avgRate=avgRate, lastReduction=lastReduction, timeSolveS=timeSolveS, steps=convCheck:step()}
+end
+
 function solve_random_d(solver, approxSpace)
 	local tBeginS = GetClockS()
 	local f = GridFunction(approxSpace)
 	f:set_random(-1, 1)		
-	solver:apply_return_defect(f, ZeroFunction())
-	local avgRate = convCheck:avg_rate()
-	local lastReduction = convCheck:defect()/convCheck:previous_defect()
-	local timeSolveS = GetClockS()-tBeginS
-	return {avgRate=avgRate, lastReduction=lastReduction, timeSolveS=timeSolveS, steps=convCheck:step()}	
+	local d = ZeroFunction()
+	solver:apply_return_defect(f, d)
+	local res= GetConvCheckTable(convCheck, tBeginS)
+	res.u = f
+	res.d = d
+	return res		
 end
 
 function MyLoadGrid(p)
@@ -132,7 +170,7 @@ function MyLoadGrid(p)
 	
 	distortDomain = util.GetParamNumber("-distortDomain", 0.0)
 	if distortDomain > 0.0 then
-		distortDomain = math.pow(d, numRefs+1)
+		distortDomain = math.pow(distortDomain, numRefs+1)
 		print("distortDomain ="..distortDomain)
 		RandomizeDomain(dom, distortDomain, distortDomain, distortDomain)
 	end			
@@ -153,7 +191,7 @@ function CreateOutputDirectory(name, mbsize)
 	local thePath
 	name = "/"..name.."/"
 	if GetOperatingSystem() == "apple" then
-		if mbsize == nil then mbsize = 1024 end
+		if mbsize == nil then mbsize = 2048 end
 		thePath = util.createMacRAMDisk("ug4RAMDisk", mbsize)..name		
 	else
 		thePath = getHome()..name
@@ -184,6 +222,8 @@ end
 
 
 function CreateStdDisc(p)
+	NeededParameters(p, {"boundaries", "approxSpace"})
+
 	local domainDisc = DomainDiscretization(p.approxSpace)
 	local dim = p.approxSpace:get_dim()
 	 
@@ -204,12 +244,11 @@ function CreateStdDisc(p)
 	end
 		
 	local dirichletBND = DirichletBoundary()
+	
 	for i,v in pairs(p.boundaries) do
 		dirichletBND:add("dirichlet_zero_"..dim, "c", v)
 	end
-	
-	
-	
+		
 	domainDisc:add(dirichletBND)
 	
 	return domainDisc
@@ -256,6 +295,7 @@ function CreateLEDisc(parameters)
 		nu = util.GetParamNumber("-nu", 0.4)
 		matLaw:set_hooke_elasticity_tensor_E_nu(20.6316, nu)
 		elemDisc:set_material_law(matLaw)
+		print(elemDisc:config_string())
 	else
 		approxSpace:add_fct("c", "Lagrange", 1)          
 		approxSpace:init_levels()
@@ -380,7 +420,6 @@ function CreateSinGridFunction(x, y)
 	return a
 end
 
-
 function CreateSinGridFunction2(x1, y1, x2, y2)
 	local gf = GridFunction(approxSpace)
 	nuX = x1
@@ -422,7 +461,7 @@ function flattenTable(tab, name, res)
 			flattenTable(v, tName..i, res)
 		end
 		return res
-	else
+	elseif type(tab) ~= "userdata" then		
 		table.insert(res, {name, tab})
 	end
 end
@@ -439,7 +478,8 @@ function getAMGStats(amg)
 	{ "c_G", amg:get_grid_complexity()},
 	{ "used Levels", amg:get_used_levels()},
 	{ "maxBase", amg:get_max_nodes_for_base() },
-	{ "delta", amg:get_delta() }
+	{ "delta", amg:get_delta() },
+	{ "tv", util.GetParam("-amgTV", "const") }
 	}	
 end
 
@@ -467,7 +507,7 @@ function solve_amg(smoother, numSmooths, name)
 		
 	print("CG, "..name)
 	local ret = {}
-	ret.cg = solve_lin(CG(), amg, "CG("..name..")")
+	ret.cg = solve_lin(BiCGStab(), amg, "CG("..name..")")
 	print("LinearSolver, "..name)
 	ret.lin = solve_lin(LinearSolver(), amg, "LS("..name..")")
 	return ret
@@ -488,4 +528,28 @@ function getAMGLevelTable(amg)
 	end
 	return res
 
+end
+
+
+function test_smoothsteps(smoother, steps)
+	local res = {}
+	for i, v in pairs(steps) do
+		res[v] = solve_amg(smoother, v, smoother:name().."x"..tostring(v))
+	end
+	return res
+end
+
+function AssembleAxb(approxSpace, domainDisc)
+	local A = MatrixOperator()
+	local b = GridFunction(approxSpace)
+	local u = GridFunction(approxSpace)
+	u:set(0.0)
+	domainDisc:adjust_solution(u)
+	
+	-- 3. assemble matrix and rhs
+	domainDisc:assemble_linear(A, b)
+	if util.HasParamOption("-writeMatrices") then
+		SaveMatrixForConnectionViewer(u, A, "Stiffness.mat")
+	end
+	return A, u, b
 end
