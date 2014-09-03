@@ -4,6 +4,23 @@ ug_load_script("util/profiler_util.lua")
 ug_load_script("util/load_balancing_util.lua")
 ug_load_script("util/mac_util.lua")
 
+EnableLUA2VM(true)
+SetDebugLevel(debugID.LUACompiler, 4)
+amgsetup = {}
+
+function amgsetup.getSmootherList()
+	return {
+		sgs = SymmetricGaussSeidel(),
+		jac05 = Jacobi(0.5),
+		jac06 = Jacobi(0.6),
+		jac07 = Jacobi(0.7),
+		jac08 = Jacobi(0.8),
+		jac09 = Jacobi(0.9),
+		jac10 = Jacobi(1.0),
+		ilu = ILU(),
+		gs = GaussSeidel(),
+		bgs = BackwardGaussSeidel() }	
+end
 
 function SetDefaultParameters(tableParameter, default)
 	for i, v in pairs(default) do
@@ -23,7 +40,7 @@ function NeededParameters(p, parameters)
 end
 
 
-function GetFAMGTestvectorList(dim)
+function amgsetup.GetFAMGTestvectorList(dim)
 	if dim == 2 then
 		return	
 		{	const = TestvectorsConstant(), 
@@ -39,8 +56,8 @@ function GetFAMGTestvectorList(dim)
 	end
 end
 
-function GetFAMGTestvectorFromCommandLine(dim)
-	return util.GetParamFromList("-amgTV", "const", GetFAMGTestvectorList(dim))
+function amgsetup.GetFAMGTestvectorFromCommandLine(dim)
+	return util.GetParamFromList("-amgTV", "const", amgsetup.GetFAMGTestvectorList(dim))
 end
 
 function SetFAMGCommandLineParameters(amg, p)
@@ -55,12 +72,19 @@ function SetFAMGCommandLineParameters(amg, p)
 	 end
 	
 	if p.wcycle or util.HasParamOption("-amgWcycle") then
+		if util.GetParamNumber("-amgCycle", "n/a") ~= "n/a" then 
+			ug_warning("WARNING: Options -amgWcycle and -amgCycle affect the same thing! Only use one. WARNING")
+		end  
 		amg:set_cycle_type(2)
 	else
 		amg:set_cycle_type(1)
 	end
+	local amgCycleType = util.GetParamNumber("-amgCycle", "n/a")
+	if amgCycleType ~= "n/a" then
+		amg:set_cycle_type(amgCycleType)
+	end
 		
-	amg:set_testvectors(GetFAMGTestvectorFromCommandLine(dim))
+	amg:set_testvectors(amgsetup.GetFAMGTestvectorFromCommandLine(dim))
 	if util.HasParamOption("-constIfFailed") then
 		amg:set_use_constant_if_failed(true)
 	end
@@ -68,6 +92,8 @@ function SetFAMGCommandLineParameters(amg, p)
 	
 	p.iTestvectorSmooths = util.GetParamNumber("-amgTestvectorSmooths", p.iTestvectorSmooths or 0)
 	amg:set_testvector_smooths(p.iTestvectorSmooths)
+	p.testVectorSmoother = util.GetParamFromList("-amgTVSmoother", "jac06", amgsetup.getSmootherList() or p.testVectorSmoother)
+	amg:set_testvector_smoother(p.testVectorSmoother)
 	amg:set_deficit_solve_tolerance(1e-12)
 
 	amg:set_max_levels(p.maxLevels)
@@ -75,7 +101,7 @@ function SetFAMGCommandLineParameters(amg, p)
 	if HasClassGroup("SuperLU") then amg:set_base_solver(SuperLU()) end	
 		
 	amg:set_num_postsmooth(p.smooths)
-	amg:set_num_presmooth(p.smooths)
+	amg:set_num_presmooth(p.smooths)	
 	amg:set_max_parents(util.GetParamNumber("-amgMaxParents", p.maxParents or 2))
 	
 	if p.XC or util.HasParamOption("-amgXC") then amg:set_external_coarsening(true) end
@@ -132,7 +158,7 @@ function solve_random_d(solver, approxSpace)
 	return res		
 end
 
-function MyLoadGrid(p)
+function amgsetup.MyLoadGrid(p)
 	SetDefaultParameters(p, 
 		{dim=2, gridName="unit_square_01/unit_square_01_quads_2x2.ugx",
 		requiredSubsets = {"Inner", "Boundary"}, cpu=1, dim=2
@@ -146,11 +172,12 @@ function MyLoadGrid(p)
 		
 	-- Display parameters (or defaults):
 	print("CommandLine: " .. util.GetCommandLine())
-	print("Parameters: ")
+	write("Parameters: ")
 	s = StringTable()
 	s:set(0, 0, "grid = " .. gridName)
-	s:set(0, 1, "numRefs = " .. numRefs)
-	s:set(1, 0, "numPreRefs = " .. numPreRefs)
+	s:set(0, 1, "numPreRefs = " .. numPreRefs)
+	s:set(0, 2, "numRefs = " .. numRefs)
+	print(s)
 
 	
 	-- choose algebra
@@ -237,7 +264,6 @@ function CreateStdDisc(p)
 		for i, v in pairs(p.diffusion) do
 			local elemDisc = ConvectionDiffusion("c", i, "fv1")
 			elemDisc:set_diffusion(v)
-			--elemDisc:set_diffusion("mydiffusion")
 			elemDisc:set_source("zero_"..dim)
 			domainDisc:add(elemDisc)
 		end
@@ -265,11 +291,7 @@ function CreateLEDisc(parameters)
 		bLinearElasticity = false
 	end
 	
-	if bLinearElasticity then
-		InitUG(dim, AlgebraType("CPU", 2))
-	else
-		InitUG(dim, AlgebraType("CPU", 1))
-	end
+	InitUG(dim, AlgebraType("CPU", cpu))
 	
 	approxSpace = ApproximationSpace(dom)
 		
@@ -279,31 +301,43 @@ function CreateLEDisc(parameters)
 	--  Setup FV Convection-Diffusion Element Discretization
 	-----------------------------------------------------------------
 	
-	if bLinearElasticity then
-		approxSpace:add_fct("ux", "Lagrange", 1)
-		approxSpace:add_fct("uy", "Lagrange", 1)
-		approxSpace:init_levels()
-		approxSpace:init_top_surface()
-		approxSpace:print_statistic()
-		
-		if dim == 2 then
-			elemDisc = SmallStrainMechanics("ux, uy", "Inner")
-		else
-			elemDisc = SmallStrainMechanics("ux, uy, uz", "Inner")
-		end
-		matLaw = HookeLaw()
-		nu = util.GetParamNumber("-nu", 0.4)
-		matLaw:set_hooke_elasticity_tensor_E_nu(20.6316, nu)
-		elemDisc:set_material_law(matLaw)
-		print(elemDisc:config_string())
-	else
-		approxSpace:add_fct("c", "Lagrange", 1)          
-		approxSpace:init_levels()
-		approxSpace:init_top_surface()
-		elemDisc = ConvectionDiffusion("c", "Inner", "fv1")
-		elemDisc:set_diffusion(1)
-		elemDisc:set_source(0)	
+	approxSpace:add_fct("ux", "Lagrange", 1)
+	approxSpace:add_fct("uy", "Lagrange", 1)
+	if dim == 3 then
+		approxSpace:add_fct("uz", "Lagrange", 1)
 	end
+	approxSpace:init_levels()
+	approxSpace:init_top_surface()
+	approxSpace:print_statistic()
+	
+	if dim == 2 then
+		elemDisc = SmallStrainMechanics("ux, uy", "Inner")
+	else
+		elemDisc = SmallStrainMechanics("ux, uy, uz", "Inner")
+	end
+	matLaw = HookeLaw()
+	nu = util.GetParamNumber("-nu", 0.4)
+	matLaw:set_hooke_elasticity_tensor_E_nu(20.6316, nu)
+	if false then
+		matLaw = HookeLaw()
+		C11 = 7341919.0868408
+		C12 = 4908133.7541864
+		C13 = 2729895.8814608
+		C22 = 163359543.45898
+		C23 = 4287702.8720363
+		C33 = 7910724.2195105
+		C44 = 6167704.4025157
+		C55 = 363209.25925926
+		C66 = 7602054.2635659
+		matLaw:set_elasticity_tensor_orthotropic(C11,C12,C13,C22,C23,C33,C44,C55,C66) 
+	end
+	
+	matLaw = HookeLaw()
+	nu = util.GetParamNumber("-nu", 0.4)
+	--matLaw:set_hooke_elasticity_tensor_E_nu(20.6316, nu)
+	matLaw:set_hooke_elasticity_tensor(110743.82,80193.80)
+	elemDisc:set_material_law(matLaw)
+	print("Hello: "..elemDisc:config_string())
 	-----------------------------------------------------------------
 	--  Setup Dirichlet Boundary
 	-----------------------------------------------------------------
@@ -347,19 +381,15 @@ function CreateLEDisc(parameters)
 end
 
 function zero_2(x, y, t)
-	return 0;
+	return 0
 end
 
 function zero_3(x, y, z, t)
-	return 0;
+	return 0
 end
 
 function dirichlet_zero_2(x, y, t)
-	if x == 0 then
-		return false, 1
-	else
-		return true, 0
-	end
+	return true, 0
 end
 
 function dirichlet_zero_3(x, y, z, t)
@@ -376,6 +406,14 @@ end
 
 function mydiffusion(x, y, t)
 	return 1,0,0,0.01
+end
+
+function IsolatorDiffusion2d(x, y, t)
+	if x > -0.5 and x < 0.5 and y < 0.5 and y > -0.5 then 
+		return amgEps, 0, 0, amgEps
+	else
+		return 1, 0, 0, 1
+	end
 end
 
 
@@ -504,12 +542,24 @@ function solve_amg(smoother, numSmooths, name)
 	amg:init_smoothers()
 	
 	print(name..": "..numSmooths.."x "..smoother:config_string())
-		
-	print("CG, "..name)
-	local ret = {}
-	ret.cg = solve_lin(BiCGStab(), amg, "CG("..name..")")
-	print("LinearSolver, "..name)
-	ret.lin = solve_lin(LinearSolver(), amg, "LS("..name..")")
+	
+	local amgTestVcycle = true
+	--local amgTestWcycle = true
+	--local amgTest2cycle = true
+	local ret = {}	
+	--print("CG, "..name)  			ret.cg = solve_lin(BiCGStab(), amg, "CG("..name..")")
+	if amgTestVcycle then
+		amg:set_cycle_type(1)
+		print("LinearSolver_V_, "..name)	ret.linV = solve_lin(LinearSolver(), amg, "LS_V("..name..")")
+	end
+	if amgTestWcycle then
+		amg:set_cycle_type(2)
+		print("LinearSolver_W_, "..name)	ret.linW = solve_lin(LinearSolver(), amg, "LS_W("..name..")")
+	end
+	if amgTest2cycle then
+		amg:set_Y_cycle(100, 1e-12, 1e-12)	
+		print("LinearSolver_2_, "..name)	ret.linY = solve_lin(LinearSolver(), amg, "LS_2("..name..")")
+	end
 	return ret
 end
 
@@ -552,4 +602,87 @@ function AssembleAxb(approxSpace, domainDisc)
 		SaveMatrixForConnectionViewer(u, A, "Stiffness.mat")
 	end
 	return A, u, b
+end
+
+
+function amgsetup.CreateApproxSpaceAndDisc()
+	if util.HasParamOption("-LE") then
+		approxSpace, domainDisc = CreateLEDisc({Domain = dom, BoundaryName = boundaries[1]})
+	else
+		approxSpace = CreateStdApproxSpace(dom)	
+		local diffusion = nil
+		local dim = approxSpace:get_dim()
+		amgEps = util.GetParamNumber("-amgEps", 1e-7)
+		if util.HasParamOption("-isolator") then
+			diffusion = {Inner=1, Isolator=amgEps}
+		elseif util.HasParamOption("-isolator2") then
+			diffusion = {Inner="IsolatorDiffusion"..dim.."d"}
+		end
+		domainDisc = CreateStdDisc({approxSpace=approxSpace, boundaries=boundaries, diffusion=diffusion })
+		
+	end
+end
+
+function amgsetup.LoadStdDomain2d()
+	requiredSubsets = {"Inner", "Boundary"}
+	
+	if util.HasParamOption("-cembalo") then
+		gridName = util.GetParam("-grid", "cembalo/cembalo_platte_2d_sci_1.ugx")
+		requiredSubsets = {"Inner", "Boundary"}
+		boundaries = {"Boundary"}
+	elseif util.HasParamOption("-33k") then
+		gridName = util.GetParam("-grid", "amgtests/unstructured_33k.ugx") -- -???
+		requiredSubsets = {"Inner", "Left", "Right", "Top", "Bottom"}
+		boundaries = {"Bottom"}
+	elseif util.HasParamOption("-3k") then
+		gridName = util.GetParam("-grid", "amgtests/unstructured_3k.ugx")
+		requiredSubsets = {"Inner", "Left", "Right", "Top", "Bottom"}
+		boundaries = {"Bottom"}
+	elseif util.HasParamOption("-beam") then
+		gridName = util.GetParam("-grid", "beamlong.ugx")
+		requiredSubsets = {"Inner", "Boundary"}
+		boundaries = {"Boundary"}
+	elseif util.HasParamOption("-isolator") then
+		gridName = "amgtests/unit_square_isolator.ugx"
+		requiredSubsets = {"Inner", "Boundary"}
+		boundaries = {"Boundary"}
+	else
+		gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2.ugx")
+		requiredSubsets = {"Inner", "Boundary"}
+		boundaries = {"Boundary"}
+	end
+		
+	dom = amgsetup.MyLoadGrid({ dim=2, cpu = cpu, gridName = gridName, requiredSubsets = requiredSubsets} )
+end
+
+function amgsetup.LoadStdDomain3d()
+	requiredSubsets = {"Inner", "Boundary"}
+	gridName = util.GetParam("-grid", "unit_square_01/unit_cube_01_hex_4x4x4.ugx")
+	dom = amgsetup.MyLoadGrid({ dim=3, cpu =cpu, gridName = gridName, requiredSubsets = requiredSubsets} )
+	boundaries = {"Boundary"}
+end
+
+
+
+function amgsetup.LoadStdDomAndApproxSpace()
+	-- get dim
+	dim = 2
+	if util.HasParamOption("-3d") then
+		dim = 3
+	end
+	
+	-- setup "cpu" field (for blocks)
+	if util.HasParamOption("-LE") then		
+		cpu = dim
+	else
+		cpu = 1
+	end
+	
+	if dim == 2 then
+		amgsetup.LoadStdDomain2d()
+	else
+		amgsetup.LoadStdDomain3d()
+	end
+	
+	amgsetup.CreateApproxSpaceAndDisc()
 end

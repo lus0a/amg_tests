@@ -7,68 +7,18 @@
 ]]--
 --------------------------------------------------------------------------------
 
-
+SetMinSecondsUntilProgress(3)
 --PrintBuildConfiguration()
 
 ug_load_script("setup.lua")
 
 InitSignals()
 
-dim = util.GetParamNumber("-dim", 2)
 outfile = util.GetParam("-outfile", nil, "output directory")
 
 
 if true then
-
-	requiredSubsets = {"Inner", "Boundary"}
-	
-	if util.HasParamOption("-LE") then		
-		cpu = dim
-	else
-		cpu = 1
-	end
-	
-	if dim == 3 then
-		gridName = util.GetParam("-grid", "unit_square_01/unit_cube_01_hex_4x4x4.ugx")
-		dom = MyLoadGrid({ dim=3, gridName = gridName, requiredSubsets = requiredSubsets} )
-		boundaries = {"Boundary"}
-	else
-		if util.HasParamOption("-cembalo") then
-			gridName = util.GetParam("-grid", "cembalo/cembalo_platte_2d_sci_1.ugx")
-			requiredSubsets = {"Inner", "Boundary"}
-			boundaries = {"Boundary"}
-		elseif util.HasParamOption("-33k") then
-			gridName = util.GetParam("-grid", "amgtests/unstructured_33k.ugx") -- -???
-			requiredSubsets = {"Inner", "Left", "Right", "Top", "Bottom"}
-			boundaries = {"Bottom"}
-		elseif util.HasParamOption("-3k") then
-			gridName = util.GetParam("-grid", "amgtests/unstructured_3k.ugx")
-			requiredSubsets = {"Inner", "Left", "Right", "Top", "Bottom"}
-			boundaries = {"Bottom"}
-		elseif util.HasParamOption("-beam") then
-			gridName = util.GetParam("-grid", "beamlong.ugx")
-			requiredSubsets = {"Inner", "Boundary"}
-			boundaries = {"Boundary"}
-		else
-			gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_quads_2x2.ugx")
-			requiredSubsets = {"Inner", "Boundary"}
-			boundaries = {"Boundary"}
-		end
-		
-		
-		dom = MyLoadGrid({ dim=2, cpu = cpu, gridName = gridName, requiredSubsets = requiredSubsets} )
-	end
-	
-		
-	util.CheckAndPrintHelp("");
-	
-	
-	if util.HasParamOption("-LE") then
-		approxSpace, domainDisc = CreateLEDisc({Domain = dom, BoundaryName = boundaries[1]})		
-	else
-		approxSpace = CreateStdApproxSpace(dom)	
-		domainDisc = CreateStdDisc({approxSpace=approxSpace, boundaries=boundaries})
-	end
+	amgsetup.LoadStdDomAndApproxSpace()
 else
 
 	gridName = util.GetParam("-grid", "../skin/2D/geometry/brick/skin2d.aniso.ugx")
@@ -98,19 +48,7 @@ precond = Jacobi()
 --------------------------------------------------------------------------------
 
 -- 1. Create Algebra
-A = MatrixOperator()
-b = GridFunction(approxSpace)
-u = GridFunction(approxSpace)
-
-
-u:set(0.0)
-domainDisc:adjust_solution(u)
-
--- 3. assemble matrix and rhs
-write("Assembling...")
-domainDisc:assemble_linear(A, b)
---SaveMatrixForConnectionViewer(u, A, "Stiffness.mat")
-print(" done.")
+A, u, b = AssembleAxb(approxSpace, domainDisc)write("Assembling...")
 
 amg = FAMGPreconditioner()
 SetFAMGCommandLineParameters(amg, {
@@ -135,24 +73,23 @@ if util.HasParamOption("-writeMatrices") then
 end
 amg:set_write_testvectors(true)
 
-testVectorSmooths = util.GetParamNumber("-testVectorSmooths", 2)
-amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
-amg:set_testvector_smooths(testVectorSmooths)
-if util.HasParamOption("-tvsGS") then
-	amg:set_testvector_smoother(SymmetricGaussSeidel()) --Jacobi(0.6))
-else
-	amg:set_testvector_smoother(Jacobi(0.6))
-end
-
 amg:set_delta(0.03)
-
+-- 2: start with best too, increase : best opComplexity, also best convergence?
+-- 3: start with best 6, decrease as long neg
+-- 4: start with 8, reduce as long better
+amg:set_xc_calc_interpolation_routine(2)
 amg:set_xc_calc_interpolation_routine(3)
+-- unterschied sichtbar bei  ugshell -ex amg/famg_laplace.lua -33k -numRefs 0 -amgMaxLevels 5 -writeMatrices -amgTV lin -amgXC
+--amg:set_xc_calc_interpolation_routine(4)
+
 --amg:set_delta(0.045)
 amg:set_delta(0.2)
 amg:set_delta(util.GetParamNumber("-delta", amg:get_delta()))
 amg:set_deficit_solve_tolerance(1e-15)
 
 amg:set_XC_LE_griebel(true)
+
+
 
 amg:set_fsmoothing(true)
 amg:set_delta(0.001, 4)
@@ -178,9 +115,39 @@ print("Init Solver...")
 --SetDebugLevel(debugID.AMG.FAMG.Interpolation, 0)
 amg:set_verbose(5)
 
+
 if util.HasParamOption("-beam") then
 	amg:set_beam(true)
 end
+ScaleDomain(dom, MakeVec(0,0,0), MakeVec(1/stretchX, 1/stretchY, 1.0))
+
+
+
+
+if true then
+	gmg = GeometricMultiGrid(approxSpace)
+	gmg:set_discretization(domainDisc)
+	gmg:set_base_level(numRefs-1)
+	gmg:set_base_solver(SuperLU())
+	iluts = GaussSeidel()
+		
+	gmg:set_smoother(iluts);
+	gmg:set_num_presmooth(32)
+	gmg:set_num_postsmooth(32)
+	gmg:set_cycle_type(2)
+
+	
+	linSolverGMG = LinearSolver(gmg, ConvCheck(30, 1e-12, 1e-12))
+	linSolverGMG:init(A)
+	resGMG=solve_random_d(linSolverGMG, approxSpace)
+	print(resGMG)
+	
+	SaveVectorForConnectionViewer(resGMG.u, "resGMG.vec")
+	do return end
+end
+	
+
+
 solver:init(A)
 
 lis=amg:level_information_str()
@@ -194,26 +161,36 @@ amg:set_one_init(true)
 
 
 if util.HasParamOption("-beam") then
+	amg:set_nr_of_preiterations_at_check(20)
 	amg:set_fsmoothing(false)
-
+	amg:set_external_coarsening(true)
 	sm = SparseBlockGaussSeidel2(2)
-	bgsRes = test_smoothsteps(sm, {1, 2, 4, 16})
-	
-	
+	bgsRes = test_smoothsteps(sm, {1, 2, 4, 16, 64})
 else
-	sgsRes = test_smoothsteps(SymmetricGaussSeidel(), {1, 2, 4, 8})
+	sgsRes = test_smoothsteps(SymmetricGaussSeidel(), {1, 2, 4, 8, 16, 32, 64})
+	sgsRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8, 16})
+	
+	--jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8})
+	if false then
+	for i, v in pairs(sgsRes) do
+		SaveVectorForConnectionViewer(sgsRes[i].lin.u, "res"..i..".vec")
+		if jacRes then SaveVectorForConnectionViewer(jacRes[i].lin.u, "jacres"..i..".vec") end
+	end
+	end
 	--jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8})	
 end
 
 if true then
-	res = solve_lin(LinearSolver(), Jacobi(0.6), "jac")
-	print(res)
-	stretchX = util.GetParamNumber("-stretchX", 1.0)
-	stretchY = util.GetParamNumber("-stretchY", 1.0)
-	print("scaling domain by ("..stretchX..", "..stretchY..")") 
-	ScaleDomain(dom, MakeVec(0,0,0), MakeVec(1/stretchX, 1/stretchY, 1.0))
+	convCheck = ConvCheck(100, 1e-12, 1e-14, false)
+	print("calculating smooth vector...")
+	if util.HasParamOption("-beam") then
+		res = solve_lin(LinearSolver(), SparseBlockGaussSeidel2(2), "bgs")
+	else
+		res = solve_lin(LinearSolver(), Jacobi(0.6), "jac")
+	end
 	SaveVectorForConnectionViewer(res.u, "smooth.vec")
 	SaveVectorForConnectionViewer(res.d, "smooth_d.vec")
+	print("done\n")
 end
 
 
@@ -231,8 +208,8 @@ if ProcRank() == 0 then
 	{ "date", os.date("y%Ym%md%d") },
 	{ "SVN Revision", GetSVNRevision()},
 	{"host", GetBuildHostname()},
-	{"commandline", util.GetCommandLine() },
-	{"testVectorSmooths", testVectorSmooths} }
+	{"commandline", util.GetCommandLine() }
+	}
 	
 	table.append(stats, getAMGStats(amg)) 
 	
@@ -256,7 +233,7 @@ if dim == 2 then amg:check_vector(TestvectorsLinear2d(), "tvLin")
 else amg:check_vector(TestvectorsLinear3d(), "tvLin") end
 
 
-if true then
+if NumProcs() == 1 and true then
 	amg:set_preiterations_mimum_defect_at_check(1e-9)
 	amg:set_nr_of_preiterations_at_check(5)
 	amg:set_num_postsmooth(4)
@@ -264,5 +241,11 @@ if true then
 	--amg:set_postsmoother(SymmetricGaussSeidel())
 	--amg:set_presmoother(SymmetricGaussSeidel())
 	--amg:init_smoothers()
-	if NumProcs() == 1 then amg:check() end
+	
+	--for i, v in pairs({1, 2, 4, 8, 16, 32, 64, 128}) do
+	for i, v in pairs({4}) do
+		amg:set_num_postsmooth(i)
+		amg:set_num_presmooth(i)
+		amg:check()
+	end
 end
