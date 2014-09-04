@@ -181,7 +181,9 @@ function amgsetup.MyLoadGrid(p)
 
 	
 	-- choose algebra
-	InitUG(p.dim, AlgebraType("CPU", p.cpu));	
+	--InitUG(p.dim, AlgebraType("CPU", p.cpu));
+	InitUG(p.dim, AlgebraType("CPU", p.cpu));
+		
 	
 	if withRedist == true then
 		dom = util.CreateDomain(gridName, 0, p.requiredSubsets)
@@ -293,6 +295,8 @@ function CreateLEDisc(parameters)
 	
 	InitUG(dim, AlgebraType("CPU", cpu))
 	
+	
+	
 	approxSpace = ApproximationSpace(dom)
 		
 	-- Create, Load, Refine and Distribute Domain
@@ -310,34 +314,57 @@ function CreateLEDisc(parameters)
 	approxSpace:init_top_surface()
 	approxSpace:print_statistic()
 	
-	if dim == 2 then
-		elemDisc = SmallStrainMechanics("ux, uy", "Inner")
-	else
-		elemDisc = SmallStrainMechanics("ux, uy, uz", "Inner")
+	
+	varNames = "ux, uy"
+	if dim == 3 then varNames = "ux, uy, uz" end	
+	
+		
+	domainDisc = DomainDiscretization(approxSpace)
+	if true then
+		if parameters.le == nil then
+			parameters.le = {}
+			parameters.le["Inner"] = {}
+			parameters.le["Inner"].nu = util.GetParamNumber("-nu", 0.4)
+			parameters.le["Inner"].E = util.GetParamNumber("-leE", 20.6316)		
+		end
+		
+		for i, v in pairs(parameters.le) do
+			elemDisc = SmallStrainMechanics(varNames, i)	
+			matLaw = HookeLaw()		
+			matLaw:set_hooke_elasticity_tensor_E_nu(v.E, v.nu)
+			elemDisc:set_material_law(matLaw)
+			elemDisc:set_quad_order(2) --- !!!!!!!!
+			print("--------------------------------------")
+			print("In Subdomain "..i..":")
+			print(elemDisc:config_string())
+			domainDisc:add(elemDisc)
+		end
+		
 	end
-	matLaw = HookeLaw()
-	nu = util.GetParamNumber("-nu", 0.4)
-	matLaw:set_hooke_elasticity_tensor_E_nu(20.6316, nu)
 	if false then
-		matLaw = HookeLaw()
-		C11 = 7341919.0868408
-		C12 = 4908133.7541864
-		C13 = 2729895.8814608
-		C22 = 163359543.45898
-		C23 = 4287702.8720363
-		C33 = 7910724.2195105
-		C44 = 6167704.4025157
-		C55 = 363209.25925926
-		C66 = 7602054.2635659
-		matLaw:set_elasticity_tensor_orthotropic(C11,C12,C13,C22,C23,C33,C44,C55,C66) 
+		elemDisc = SmallStrainMechanics(varNames, "Inner")	
+		matLaw = HookeLaw()		
+		matLaw:set_elasticity_tensor_orthotropic2d(1e-7, 0, 1, 1)
+		elemDisc:set_material_law(matLaw)
+		elemDisc:set_quad_order(2) --- !!!!!!!!
+		print("--------------------------------------")
+		print(elemDisc:config_string())
+		
+		domainDisc:add(elemDisc)
+		
+		if util.HasParamOption("-isolator") then
+		elemDisc = SmallStrainMechanics(varNames, "Isolator")	
+		matLaw = HookeLaw()		
+		matLaw:set_elasticity_tensor_orthotropic2d(1, 0, 1, 1)
+		elemDisc:set_material_law(matLaw)
+		elemDisc:set_quad_order(2) --- !!!!!!!!
+		print("--------------------------------------")
+		print(elemDisc:config_string())
+		
+		domainDisc:add(elemDisc)
+		end
 	end
 	
-	matLaw = HookeLaw()
-	nu = util.GetParamNumber("-nu", 0.4)
-	--matLaw:set_hooke_elasticity_tensor_E_nu(20.6316, nu)
-	matLaw:set_hooke_elasticity_tensor(110743.82,80193.80)
-	elemDisc:set_material_law(matLaw)
-	print("Hello: "..elemDisc:config_string())
 	-----------------------------------------------------------------
 	--  Setup Dirichlet Boundary
 	-----------------------------------------------------------------
@@ -369,9 +396,7 @@ function CreateLEDisc(parameters)
 	-------------------------------------------
 	--  Setup Domain Discretization
 	-------------------------------------------
-	
-	domainDisc = DomainDiscretization(approxSpace)
-	domainDisc:add(elemDisc)
+
 	domainDisc:add(dirichletBND)
 	-- domainDisc:add(neumannDisc)
 	
@@ -409,6 +434,7 @@ function mydiffusion(x, y, t)
 end
 
 function IsolatorDiffusion2d(x, y, t)
+	--if x > -0.51 and x < 0.51 and y < 0.51 and y > -0.51 then
 	if x > -0.5 and x < 0.5 and y < 0.5 and y > -0.5 then 
 		return amgEps, 0, 0, amgEps
 	else
@@ -607,7 +633,11 @@ end
 
 function amgsetup.CreateApproxSpaceAndDisc()
 	if util.HasParamOption("-LE") then
-		approxSpace, domainDisc = CreateLEDisc({Domain = dom, BoundaryName = boundaries[1]})
+		local le=nil
+		if util.HasParamOption("-isolator") then
+			le={Inner={nu=0.4,E=20}, Isolator={nu=0.0, E=20}}
+		end
+		approxSpace, domainDisc = CreateLEDisc({Domain = dom, BoundaryName = boundaries[1], le=le})
 	else
 		approxSpace = CreateStdApproxSpace(dom)	
 		local diffusion = nil
@@ -646,6 +676,10 @@ function amgsetup.LoadStdDomain2d()
 		gridName = "amgtests/unit_square_isolator.ugx"
 		requiredSubsets = {"Inner", "Boundary"}
 		boundaries = {"Boundary"}
+	elseif util.HasParamOption("-squareUG") then
+		gridName = "amgtests/unit_square_unstructured.ugx"
+		requiredSubsets = {"Inner", "Left", "Right", "Top", "Bottom"}
+		boundaries = {"Bottom"}
 	else
 		gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2.ugx")
 		requiredSubsets = {"Inner", "Boundary"}
@@ -657,7 +691,7 @@ end
 
 function amgsetup.LoadStdDomain3d()
 	requiredSubsets = {"Inner", "Boundary"}
-	gridName = util.GetParam("-grid", "unit_square_01/unit_cube_01_hex_4x4x4.ugx")
+	gridName = util.GetParam("-grid", "unit_square_01/unit_cube_01_hex_2x2x2.ugx") --unit_cube_01_hex_4x4x4.ugx")
 	dom = amgsetup.MyLoadGrid({ dim=3, cpu =cpu, gridName = gridName, requiredSubsets = requiredSubsets} )
 	boundaries = {"Boundary"}
 end

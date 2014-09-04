@@ -31,7 +31,7 @@ else
 		diffusion={LIP=1, COR=10}
 		})
 end
-OrderCuthillMcKee(approxSpace, true)
+--OrderCuthillMcKee(approxSpace, true)
 	
 
 --------------------------------------------------------------------------------
@@ -78,7 +78,7 @@ amg:set_delta(0.03)
 -- 3: start with best 6, decrease as long neg
 -- 4: start with 8, reduce as long better
 amg:set_xc_calc_interpolation_routine(2)
-amg:set_xc_calc_interpolation_routine(3)
+--amg:set_xc_calc_interpolation_routine(3)
 -- unterschied sichtbar bei  ugshell -ex amg/famg_laplace.lua -33k -numRefs 0 -amgMaxLevels 5 -writeMatrices -amgTV lin -amgXC
 --amg:set_xc_calc_interpolation_routine(4)
 
@@ -127,23 +127,23 @@ ScaleDomain(dom, MakeVec(0,0,0), MakeVec(1/stretchX, 1/stretchY, 1.0))
 if true then
 	gmg = GeometricMultiGrid(approxSpace)
 	gmg:set_discretization(domainDisc)
-	gmg:set_base_level(numRefs-1)
+	gmg:set_base_level(0)
 	gmg:set_base_solver(SuperLU())
-	iluts = GaussSeidel()
+	gmgSmoother = GaussSeidel()
 		
-	gmg:set_smoother(iluts);
-	gmg:set_num_presmooth(32)
-	gmg:set_num_postsmooth(32)
-	gmg:set_cycle_type(2)
+	gmg:set_smoother(gmgSmoother);
+	gmg:set_num_presmooth(2)
+	gmg:set_num_postsmooth(2)
+	gmg:set_cycle_type(1)
+	gmg:set_rap(true)
 
-	
+	--gmg = Jacobi(0.66)
 	linSolverGMG = LinearSolver(gmg, ConvCheck(30, 1e-12, 1e-12))
 	linSolverGMG:init(A)
 	resGMG=solve_random_d(linSolverGMG, approxSpace)
 	print(resGMG)
 	
-	SaveVectorForConnectionViewer(resGMG.u, "resGMG.vec")
-	do return end
+	SaveVectorForConnectionViewer(resGMG.u, "resGMG.vec")	
 end
 	
 
@@ -166,9 +166,12 @@ if util.HasParamOption("-beam") then
 	amg:set_external_coarsening(true)
 	sm = SparseBlockGaussSeidel2(2)
 	bgsRes = test_smoothsteps(sm, {1, 2, 4, 16, 64})
+	for i, v in pairs(bgsRes) do
+		SaveVectorForConnectionViewer(bgsRes[i].linV.u, "res"..i..".vec")
+	end
 else
-	sgsRes = test_smoothsteps(SymmetricGaussSeidel(), {1, 2, 4, 8, 16, 32, 64})
-	sgsRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8, 16})
+	sgsRes = test_smoothsteps(GaussSeidel(), {1, 2, 4, 8, 16, 32, 64})
+	jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8, 16})
 	
 	--jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8})
 	if false then
