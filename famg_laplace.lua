@@ -144,7 +144,9 @@ if true then
 	gmgRes=solve_random_d(linSolverGMG, approxSpace, gmgConvCheck)
 	print(gmgRes)
 	
-	SaveVectorForConnectionViewer(gmgRes.u, "resGMG.vec")	
+	if util.HasParamOption("-writeMatrices") then
+		SaveVectorForConnectionViewer(gmgRes.u, "resGMG.vec")
+	end	
 end
 	
 
