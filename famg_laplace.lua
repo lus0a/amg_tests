@@ -39,7 +39,6 @@ end
 --------------------------------------------------------------------------------
 print ("Setting up Algebra Solver")
 
-convCheck = ConvCheck(5, 1e-5, 1e-5, false)
 precond = Jacobi()
 
 
@@ -104,6 +103,7 @@ amg:set_delta(0.001, 4)
 
 --amg = RSAMGPreconditioner()
 amg:set_strong_connection_external(0.1)
+
 convCheck = ConvCheck(30, 1e-12, 1e-14)
 linSolver = LinearSolver(amg, convCheck)
 solver = linSolver
@@ -138,12 +138,13 @@ if true then
 	gmg:set_rap(true)
 
 	--gmg = Jacobi(0.66)
-	linSolverGMG = LinearSolver(gmg, ConvCheck(30, 1e-12, 1e-12))
+	gmgConvCheck = ConvCheck(30, 1e-12, 1e-12)
+	linSolverGMG = LinearSolver(gmg, gmgConvCheck)
 	linSolverGMG:init(A)
-	resGMG=solve_random_d(linSolverGMG, approxSpace)
-	print(resGMG)
+	gmgRes=solve_random_d(linSolverGMG, approxSpace, gmgConvCheck)
+	print(gmgRes)
 	
-	SaveVectorForConnectionViewer(resGMG.u, "resGMG.vec")	
+	SaveVectorForConnectionViewer(gmgRes.u, "resGMG.vec")	
 end
 	
 
@@ -165,13 +166,13 @@ if util.HasParamOption("-beam") then
 	amg:set_fsmoothing(false)
 	amg:set_external_coarsening(true)
 	sm = SparseBlockGaussSeidel2(2)
-	bgsRes = test_smoothsteps(sm, {1, 2, 4, 16, 64})
+	bgsRes = test_smoothsteps(sm, convCheck, {1, 2, 4, 16, 64})
 	for i, v in pairs(bgsRes) do
 		SaveVectorForConnectionViewer(bgsRes[i].linV.u, "res"..i..".vec")
 	end
 else
-	sgsRes = test_smoothsteps(GaussSeidel(), {1, 2, 4, 8, 16, 32, 64})
-	jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8, 16})
+	sgsRes = test_smoothsteps(GaussSeidel(), convCheck, {1, 2, 4, 8, 16, 32, 64})
+	jacRes = test_smoothsteps(Jacobi(0.6), convCheck, {1, 2, 4, 8, 16})
 	
 	--jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8})
 	if false then
@@ -187,9 +188,9 @@ if true then
 	convCheck = ConvCheck(100, 1e-12, 1e-14, false)
 	print("calculating smooth vector...")
 	if util.HasParamOption("-beam") then
-		res = solve_lin(LinearSolver(), SparseBlockGaussSeidel2(2), "bgs")
+		res = solve_lin(LinearSolver(), SparseBlockGaussSeidel2(2), convCheck, "bgs")
 	else
-		res = solve_lin(LinearSolver(), Jacobi(0.6), "jac")
+		res = solve_lin(LinearSolver(), Jacobi(0.6), convCheck, "jac")
 	end
 	SaveVectorForConnectionViewer(res.u, "smooth.vec")
 	SaveVectorForConnectionViewer(res.d, "smooth_d.vec")
@@ -216,6 +217,7 @@ if ProcRank() == 0 then
 	
 	table.append(stats, getAMGStats(amg)) 
 	
+	if gmgRes ~= nil then flattenTable(gmgRes, "gmg", stats) end
 	if sgsRes ~= nil then flattenTable(sgsRes, "sgs", stats) end
 	if jacRes ~= nil then flattenTable(jacRes, "jac", stats) end
 	if bgsRes ~= nil then flattenTable(bgsRes, "bgs", stats) end	

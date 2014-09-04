@@ -112,15 +112,15 @@ function SetFAMGCommandLineParameters(amg, p)
 	amg:set_indirect_interpolation(util.HasParamOption("-amgIndirectInterpolation")) 	
  end
 
-function last_random_conv(solver, approxSpace)
-	return solve_random_d(solver, approxSpace).lastReduction
+function last_random_conv(solver, approxSpace, convCheck)
+	return solve_random_d(solver, approxSpace, convCheck).lastReduction
 end
 
-function solve_random(solver, approxSpace)
+function solve_random(solver, approxSpace, convCheck)
 	local avgRate
 	local lastReduction
 	local convMsg
-  	local res = solve_random_d(solver, approxSpace)
+  	local res = solve_random_d(solver, approxSpace, convCheck)
   	if res.avgRate < 1e-12 then
 		convMsg = res.avgRate.." - EXACT!"
 	else
@@ -146,12 +146,13 @@ function GetConvCheckTable(convCheck, tBeginS)
 	return {avgRate=avgRate, lastReduction=lastReduction, timeSolveS=timeSolveS, steps=convCheck:step()}
 end
 
-function solve_random_d(solver, approxSpace)
+function solve_random_d(solver, approxSpace, convCheck)
 	local tBeginS = GetClockS()
 	local f = GridFunction(approxSpace)
 	f:set_random(-1, 1)		
 	local d = ZeroFunction()
 	solver:apply_return_defect(f, d)
+	local cc = solver:convergence_check()		
 	local res= GetConvCheckTable(convCheck, tBeginS)
 	res.u = f
 	res.d = d
@@ -547,15 +548,15 @@ function getAMGStats(amg)
 	}	
 end
 
-function solve_lin(linSolver, amg, name)
+function solve_lin(linSolver, amg, convCheck, name)
 	linSolver:set_convergence_check(convCheck)	
 	linSolver:set_preconditioner(amg)
 	linSolver:init(A)
-	return solve_random_d(linSolver, approxSpace)
+	return solve_random_d(linSolver, approxSpace, convCheck)
 	
 end
 
-function solve_amg(smoother, numSmooths, name)
+function solve_amg(smoother, numSmooths, convCheck, name)
 
 
 	amg:set_presmoother(smoother)
@@ -576,11 +577,11 @@ function solve_amg(smoother, numSmooths, name)
 	--print("CG, "..name)  			ret.cg = solve_lin(BiCGStab(), amg, "CG("..name..")")
 	if amgTestVcycle then
 		amg:set_cycle_type(1)
-		print("LinearSolver_V_, "..name)	ret.linV = solve_lin(LinearSolver(), amg, "LS_V("..name..")")
+		print("LinearSolver_V_, "..name)	ret.linV = solve_lin(LinearSolver(), amg, convCheck, "LS_V("..name..")")
 	end
 	if amgTestWcycle then
 		amg:set_cycle_type(2)
-		print("LinearSolver_W_, "..name)	ret.linW = solve_lin(LinearSolver(), amg, "LS_W("..name..")")
+		print("LinearSolver_W_, "..name)	ret.linW = solve_lin(LinearSolver(), amg, convCheck, "LS_W("..name..")")
 	end
 	if amgTest2cycle then
 		amg:set_Y_cycle(100, 1e-12, 1e-12)	
@@ -607,10 +608,10 @@ function getAMGLevelTable(amg)
 end
 
 
-function test_smoothsteps(smoother, steps)
+function test_smoothsteps(smoother, convCheck, steps)
 	local res = {}
 	for i, v in pairs(steps) do
-		res[v] = solve_amg(smoother, v, smoother:name().."x"..tostring(v))
+		res[v] = solve_amg(smoother, v, convCheck, smoother:name().."x"..tostring(v))
 	end
 	return res
 end
