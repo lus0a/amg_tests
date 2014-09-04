@@ -129,7 +129,7 @@ if true then
 	gmg:set_discretization(domainDisc)
 	gmg:set_base_level(0)
 	gmg:set_base_solver(SuperLU())
-	gmgSmoother = GaussSeidel()
+	gmgSmoother = Jacobi(0.5)
 		
 	gmg:set_smoother(gmgSmoother);
 	gmg:set_num_presmooth(2)
@@ -172,14 +172,14 @@ if util.HasParamOption("-beam") then
 	end
 else
 	sgsRes = test_smoothsteps(GaussSeidel(), convCheck, {1, 2, 4, 8, 16, 32, 64})
-	jacRes = test_smoothsteps(Jacobi(0.6), convCheck, {1, 2, 4, 8, 16})
+	jacRes = test_smoothsteps(Jacobi(0.5), convCheck, {1, 2, 4, 8, 16})
 	
 	--jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8})
-	if false then
-	for i, v in pairs(sgsRes) do
-		SaveVectorForConnectionViewer(sgsRes[i].lin.u, "res"..i..".vec")
-		if jacRes then SaveVectorForConnectionViewer(jacRes[i].lin.u, "jacres"..i..".vec") end
-	end
+	if util.HasParamOption("-writeMatrices") then
+		for i, v in pairs(sgsRes) do
+			SaveVectorForConnectionViewer(sgsRes[i].lin.u, "res"..i..".vec")
+			if jacRes then SaveVectorForConnectionViewer(jacRes[i].lin.u, "jacres"..i..".vec") end
+		end
 	end
 	--jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8})	
 end
@@ -192,8 +192,10 @@ if true then
 	else
 		res = solve_lin(LinearSolver(), Jacobi(0.6), convCheck, "jac")
 	end
-	SaveVectorForConnectionViewer(res.u, "smooth.vec")
-	SaveVectorForConnectionViewer(res.d, "smooth_d.vec")
+	if util.HasParamOption("-writeMatrices") then
+		SaveVectorForConnectionViewer(res.u, "smooth.vec")
+		SaveVectorForConnectionViewer(res.d, "smooth_d.vec")
+	end
 	print("done\n")
 end
 
