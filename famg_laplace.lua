@@ -179,7 +179,7 @@ if util.HasParamOption("-beam") then
 		SaveVectorForConnectionViewer(bgsRes[i].linV.u, "res"..i..".vec")
 	end
 else
-	sgsRes = test_smoothsteps(GaussSeidel(), convCheck, {1, 2, 4, 8, 16, 32, 64})
+	sgsRes = test_smoothsteps(SymmetricGaussSeidel(), convCheck, {1, 2, 4, 8, 16, 32, 64})
 	jacRes = test_smoothsteps(Jacobi(0.5), convCheck, {1, 2, 4, 8, 16})
 	
 	--jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8})
