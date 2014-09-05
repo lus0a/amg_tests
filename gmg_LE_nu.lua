@@ -62,7 +62,7 @@ end
 
 if ProcRank() == 0 then
 	stats = {
-	{ "order", util.GetParamOption("-order", 0)},	
+	{ "order", util.GetParamNumber("-order", 0)},	
 	{ "procs", NumProcs() },
 	--{ "numPreRefs", numPreRefs},
 	{ "numRefs", numRefs },
