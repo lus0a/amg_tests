@@ -85,8 +85,10 @@ amg:set_delta(0.03)
 -- 2: start with best too, increase : best opComplexity, also best convergence?
 -- 3: start with best 6, decrease as long neg
 -- 4: start with 8, reduce as long better
-amg:set_xc_calc_interpolation_routine(2)
---amg:set_xc_calc_interpolation_routine(3)
+-- 3 doch besser?
+--amg:set_xc_calc_interpolation_routine(2)
+amg:set_xc_calc_interpolation_routine(3)
+
 -- unterschied sichtbar bei  ugshell -ex amg/famg_laplace.lua -33k -numRefs 0 -amgMaxLevels 5 -writeMatrices -amgTV lin -amgXC
 --amg:set_xc_calc_interpolation_routine(4)
 
