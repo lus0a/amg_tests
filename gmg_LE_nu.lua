@@ -40,8 +40,7 @@ if true then
 	numSmooths = util.GetParamNumber("-numSmooths", 2)
 		
 	gmg:set_smoother(gmgSmoother);
-	gmg:set_num_presmooth(numSmooths)
-	gmg:set_num_postsmooth(numSmooths)
+	
 	gmg:set_cycle_type(1)
 	
 	print(gmg:config_string())
@@ -50,8 +49,15 @@ if true then
 	gmgConvCheck = ConvCheck(30, 1e-12, 1e-12)
 	linSolverGMG = LinearSolver(gmg, gmgConvCheck)
 	linSolverGMG:init(A)
-	gmgRes=solve_random_d(linSolverGMG, approxSpace, gmgConvCheck)
-	print(gmgRes)
+	
+	gmgRes = {}
+	for i, numSmooths  in pairs({1, 2, 4, 8, 16, 32, 64, 128}) do
+		gmg:set_num_presmooth(numSmooths)
+		gmg:set_num_postsmooth(numSmooths)		
+		gmgRes[numSmooths]=solve_random_d(linSolverGMG, approxSpace, gmgConvCheck)
+		gmgRes[numSmooths].numSmooths = numSmooths
+		print(gmgRes[numSmooths])
+	end
 	
 	if util.HasParamOption("-writeMatrices") then
 		SaveVectorForConnectionViewer(gmgRes.u, "resGMG.vec")
