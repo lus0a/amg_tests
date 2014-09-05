@@ -37,8 +37,7 @@ if true then
 	gmg:set_base_solver(GetBestLU())
 	
 	gmgSmoother = util.GetParamFromList("-smoother", "sgs", amgsetup.getSmootherList())
-	numSmooths = util.GetParamNumber("-numSmooths", 2)
-		
+			
 	gmg:set_smoother(gmgSmoother);
 	
 	gmg:set_cycle_type(1)
