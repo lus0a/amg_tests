@@ -8,6 +8,14 @@ EnableLUA2VM(true)
 SetDebugLevel(debugID.LUACompiler, 4)
 amgsetup = {}
 
+function GetBestLU()
+	if HasClassGroup("SuperLU") then 
+		return SuperLU()
+	else
+		return LU()
+	end	
+end
+
 function amgsetup.getSmootherList()
 	return {
 		sgs = SymmetricGaussSeidel(),
@@ -98,7 +106,8 @@ function SetFAMGCommandLineParameters(amg, p)
 
 	amg:set_max_levels(p.maxLevels)
 	amg:set_max_nodes_for_base(p.maxNodesForBase)
-	if HasClassGroup("SuperLU") then amg:set_base_solver(SuperLU()) end	
+	amg:set_base_solver(GetBestLU())
+		
 		
 	amg:set_num_postsmooth(p.smooths)
 	amg:set_num_presmooth(p.smooths)	
@@ -334,7 +343,7 @@ function CreateLEDisc(parameters)
 			matLaw = HookeLaw()		
 			matLaw:set_hooke_elasticity_tensor_E_nu(v.E, v.nu)
 			elemDisc:set_material_law(matLaw)
-			elemDisc:set_quad_order(2) --- !!!!!!!!
+			elemDisc:set_quad_order(3) --- !!!!!!!!
 			print("--------------------------------------")
 			print("In Subdomain "..i..":")
 			print(elemDisc:config_string())

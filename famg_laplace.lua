@@ -31,7 +31,7 @@ else
 		diffusion={LIP=1, COR=10}
 		})
 end
---OrderCuthillMcKee(approxSpace, true)
+
 	
 
 --------------------------------------------------------------------------------
@@ -40,7 +40,9 @@ end
 print ("Setting up Algebra Solver")
 
 precond = Jacobi()
-
+if util.HasParamOption("-beam") then
+	OrderCuthillMcKee(approxSpace, true)
+end
 
 --------------------------------------------------------------------------------
 -- Solve
@@ -56,6 +58,13 @@ SetFAMGCommandLineParameters(amg, {
 	smooths=4,
 	maxNodesForBase=2000	
 	})
+
+if util.HasParamOption("-beam") then
+print("BEAM")
+	amg:set_beam(true)
+	amg:set_external_coarsening(true)
+	
+end
 
 
 sgs = SymmetricGaussSeidel()
@@ -116,9 +125,6 @@ print("Init Solver...")
 amg:set_verbose(5)
 
 
-if util.HasParamOption("-beam") then
-	amg:set_beam(true)
-end
 ScaleDomain(dom, MakeVec(0,0,0), MakeVec(1/stretchX, 1/stretchY, 1.0))
 
 
@@ -128,7 +134,7 @@ if true then
 	gmg = GeometricMultiGrid(approxSpace)
 	gmg:set_discretization(domainDisc)
 	gmg:set_base_level(0)
-	gmg:set_base_solver(SuperLU())
+	gmg:set_base_solver(GetBestLU())
 	gmgSmoother = Jacobi(0.5)
 		
 	gmg:set_smoother(gmgSmoother);
@@ -167,7 +173,7 @@ if util.HasParamOption("-beam") then
 	amg:set_nr_of_preiterations_at_check(20)
 	amg:set_fsmoothing(false)
 	amg:set_external_coarsening(true)
-	sm = SparseBlockGaussSeidel2(2)
+	sm = SparseBlockGaussSeidel2(3)
 	bgsRes = test_smoothsteps(sm, convCheck, {1, 2, 4, 16, 64})
 	for i, v in pairs(bgsRes) do
 		SaveVectorForConnectionViewer(bgsRes[i].linV.u, "res"..i..".vec")
