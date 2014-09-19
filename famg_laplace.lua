@@ -40,9 +40,7 @@ end
 print ("Setting up Algebra Solver")
 
 precond = Jacobi()
-if util.HasParamOption("-beam") then
-	OrderCuthillMcKee(approxSpace, true)
-end
+OrderCuthillMcKee(approxSpace, true)
 
 --------------------------------------------------------------------------------
 -- Solve
@@ -87,7 +85,7 @@ amg:set_delta(0.03)
 -- 4: start with 8, reduce as long better
 -- 3 doch besser?
 amg:set_xc_calc_interpolation_routine(2)
---amg:set_xc_calc_interpolation_routine(3)
+amg:set_xc_calc_interpolation_routine(3)
 
 -- unterschied sichtbar bei  ugshell -ex amg/famg_laplace.lua -33k -numRefs 0 -amgMaxLevels 5 -writeMatrices -amgTV lin -amgXC
 --amg:set_xc_calc_interpolation_routine(4)
@@ -102,20 +100,9 @@ amg:set_XC_LE_griebel(true)
 
 
 amg:set_fsmoothing(true)
-amg:set_delta(0.001, 4)
---amg:set_verbose(5)
---amg:add_watchnode(2, 939)
---amg:add_watchnode(1, 2800)
---amg:add_watchnode(0, 1084)
--- amg:add_watchnode(1, 839)
---amg = RSAMGPreconditioner()
-
---amg:add_watchnode(1, 21066)
-
---amg = RSAMGPreconditioner()
 amg:set_strong_connection_external(0.1)
 
-convCheck = ConvCheck(30, 1e-12, 1e-14)
+convCheck = ConvCheck(30, 1e-20, 1e-20)
 linSolver = LinearSolver(amg, convCheck)
 solver = linSolver
 
@@ -132,18 +119,19 @@ ScaleDomain(dom, MakeVec(0,0,0), MakeVec(1/stretchX, 1/stretchY, 1.0))
 
 
 
-if true then
+if numRefs > 0 then
 	gmg = GeometricMultiGrid(approxSpace)
 	gmg:set_discretization(domainDisc)
 	gmg:set_base_level(0)
 	gmg:set_base_solver(GetBestLU())
-	gmgSmoother = Jacobi(0.5)
-		
+	gmgSmoother = SymmetricGaussSeidel()
+	--Jacobi(0.5)
+	
 	gmg:set_smoother(gmgSmoother);
 	gmg:set_num_presmooth(2)
 	gmg:set_num_postsmooth(2)
 	gmg:set_cycle_type(1)
-	gmg:set_rap(true)
+	gmg:set_rap(false)
 
 	--gmg = Jacobi(0.66)
 	gmgConvCheck = ConvCheck(30, 1e-12, 1e-12)
@@ -157,7 +145,9 @@ if true then
 	end	
 end
 	
-
+--SetDebugLevel(debugID.AMG.Agglomeration, 5)
+--amg:set_min_nodes_on_one_processor(1) amg:set_preferred_nodes_on_one_processor(1)
+--amg:set_debug_write_all_vectors(true)
 
 solver:init(A)
 
@@ -170,7 +160,6 @@ print("Solve...")
 
 amg:set_one_init(true)
 
-
 if util.HasParamOption("-beam") then
 	amg:set_nr_of_preiterations_at_check(20)
 	amg:set_fsmoothing(false)
@@ -182,13 +171,17 @@ if util.HasParamOption("-beam") then
 	end
 else
 	sgsRes = test_smoothsteps(SymmetricGaussSeidel(), convCheck, {1, 2, 4, 8, 16, 32, 64})
-	jacRes = test_smoothsteps(Jacobi(0.5), convCheck, {1, 2, 4, 8, 16})
+	--sgsRes = test_smoothsteps(SymmetricGaussSeidel(), convCheck, {4})
+	--EconvCheck = EnergyConvCheck(50, 1e-20, 1e-20)
+	--EconvCheck:set_linear_operator(A)
+	--sgsRes = test_smoothsteps(SymmetricGaussSeidel(), EconvCheck, {2})
+	--jacRes = test_smoothsteps(Jacobi(0.5), convCheck, {1, 2, 4, 8, 16})
 	
 	--jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8})
 	if util.HasParamOption("-writeMatrices") then
 		for i, v in pairs(sgsRes) do
-			SaveVectorForConnectionViewer(sgsRes[i].lin.u, "res"..i..".vec")
-			if jacRes then SaveVectorForConnectionViewer(jacRes[i].lin.u, "jacres"..i..".vec") end
+			if sgsRes[i].linV then SaveVectorForConnectionViewer(sgsRes[i].linV.u, "res"..i..".vec") end			
+			if jacRes then SaveVectorForConnectionViewer(jacRes[i].linV.u, "jacres"..i..".vec") end
 		end
 	end
 	--jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8})	
@@ -250,19 +243,19 @@ if dim == 2 then amg:check_vector(TestvectorsLinear2d(), "tvLin")
 else amg:check_vector(TestvectorsLinear3d(), "tvLin") end
 
 
-if NumProcs() == 1 and true then
-	amg:set_preiterations_mimum_defect_at_check(1e-9)
-	amg:set_nr_of_preiterations_at_check(5)
-	amg:set_num_postsmooth(4)
-	amg:set_num_presmooth(4)
-	--amg:set_postsmoother(SymmetricGaussSeidel())
-	--amg:set_presmoother(SymmetricGaussSeidel())
-	--amg:init_smoothers()
+if true or NumProcs() == 1 then
+	amg:set_preiterations_mimum_defect_at_check(1e-30)	
+	amg:set_nr_of_preiterations_at_check(10)
+	amg:set_num_postsmooth(2)
+	amg:set_num_presmooth(2)
+	amg:set_postsmoother(SymmetricGaussSeidel())
+	amg:set_presmoother(SymmetricGaussSeidel())
+	amg:init_smoothers()
 	
 	--for i, v in pairs({1, 2, 4, 8, 16, 32, 64, 128}) do
-	for i, v in pairs({4}) do
-		amg:set_num_postsmooth(i)
-		amg:set_num_presmooth(i)
+	--for i, v in pairs({4}) do
+	--	amg:set_num_postsmooth(i)
+		--amg:set_num_presmooth(i)
 		amg:check()
-	end
+	--end
 end

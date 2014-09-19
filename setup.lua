@@ -145,7 +145,8 @@ end
 
 function GetConvCheckTable(convCheck, tBeginS)
 	local avgRate = convCheck:avg_rate()
-	local lastReduction = convCheck:defect()/convCheck:previous_defect()
+	--local lastReduction = convCheck:defect()/convCheck:previous_defect()
+	local lastReduction = 1 --convCheck:rate()
 	local timeSolveS
 	if tBeginS then
 		timeSolveS = GetClockS()-tBeginS
@@ -158,6 +159,7 @@ end
 function solve_random_d(solver, approxSpace, convCheck)
 	local tBeginS = GetClockS()
 	local f = GridFunction(approxSpace)
+	srand(0)
 	f:set_random(-1, 1)		
 	local d = ZeroFunction()
 	solver:apply_return_defect(f, d)
@@ -178,6 +180,8 @@ function amgsetup.MyLoadGrid(p)
 	numPreRefs = util.GetParamNumber("-numPreRefs", 0, "number of refinements before parallel distribution")
 	numRefs    = util.GetParamNumber("-numRefs",    3, "number of refinements")
 	
+	
+	
 	if numPreRefs > numRefs then numPreRefs = numRefs end
 		
 	-- Display parameters (or defaults):
@@ -192,8 +196,7 @@ function amgsetup.MyLoadGrid(p)
 	
 	-- choose algebra
 	--InitUG(p.dim, AlgebraType("CPU", p.cpu));
-	InitUG(p.dim, AlgebraType("CPU", p.cpu));
-		
+	InitUG(p.dim, AlgebraType("CPU", p.cpu))
 	
 	if withRedist == true then
 		dom = util.CreateDomain(gridName, 0, p.requiredSubsets)
@@ -201,6 +204,8 @@ function amgsetup.MyLoadGrid(p)
 	else
 		dom = util.CreateAndDistributeDomain(p.gridName, numRefs, numPreRefs, p.requiredSubsets)
 	end	
+	
+	print(dom:domain_info():to_string())
 		
 	stretchX = util.GetParamNumber("-stretchX", 1.0)
 	stretchY = util.GetParamNumber("-stretchY", 1.0)
@@ -580,12 +585,12 @@ function solve_amg(smoother, numSmooths, convCheck, name)
 	print(name..": "..numSmooths.."x "..smoother:config_string())
 	
 	local amgTestVcycle = true
-	--local amgTestWcycle = true
-	--local amgTest2cycle = true
+	local amgTestWcycle = true
+	local amgTest2cycle = true
 	local ret = {}	
 	--print("CG, "..name)  			ret.cg = solve_lin(BiCGStab(), amg, "CG("..name..")")
 	if amgTestVcycle then
-		amg:set_cycle_type(1)
+		amg:set_cycle_type(1)		
 		print("LinearSolver_V_, "..name)	ret.linV = solve_lin(LinearSolver(), amg, convCheck, "LS_V("..name..")")
 	end
 	if amgTestWcycle then
@@ -593,9 +598,10 @@ function solve_amg(smoother, numSmooths, convCheck, name)
 		print("LinearSolver_W_, "..name)	ret.linW = solve_lin(LinearSolver(), amg, convCheck, "LS_W("..name..")")
 	end
 	if amgTest2cycle then
-		amg:set_Y_cycle(100, 1e-12, 1e-12)	
-		print("LinearSolver_2_, "..name)	ret.linY = solve_lin(LinearSolver(), amg, "LS_2("..name..")")
+		amg:set_Y_cycle(100, 1e-20, 0.01)			
+		print("LinearSolver_2_, "..name)	ret.linY = solve_lin(LinearSolver(), amg, convCheck, "LS_2("..name..")")
 	end
+	amg:set_cycle_type(1)		
 	return ret
 end
 
