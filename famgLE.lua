@@ -24,8 +24,8 @@ numRefs = util.GetParamNumber("-numRefs", 1, "number of refinements")
 numPreRefs = util.GetParamNumber("-numPreRefs", -1, "number of refinements before ")
 
 
-maxBase = util.GetParamNumber("-maxBase", 1200, "maximum number of nodes before base solver is used")
-maxLevels = util.GetParamNumber("-maxLevels", 30, "maximum number of AMG levels")
+maxBase = util.GetParamNumber("-maxBase", 2, "maximum number of nodes before base solver is used")
+maxLevels = util.GetParamNumber("-maxLevels", 2, "maximum number of AMG levels")
 
 RAepsilon = util.GetParamNumber("-RAepsilon", 1, "epsilon for rotated anisotropy")
 RAalpha = util.GetParamNumber("-RAalpha", 0, "alpha (degrees) for rotated anisotropy")
@@ -65,8 +65,16 @@ numSys = util.GetParamNumber("-numSys", 1, "nr of systems")
 -- gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2.ugx")
 gridName = util.GetParam("-grid", "unit_square_quads_8x8_four_dirichlet_nodes.ugx")
 gridName = util.GetParam("-grid", "unit_square/neumann_stretched.ugx")
-gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_quads_16x16_stretched.ugx")
+--gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_quads_16x16_stretched.ugx")
+--gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_quads_16x16_scaled.ugx")
 -- gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2_dirichlet_bottom.ugx")
+gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_quads_16x16.ugx")
+gridName = util.GetParam("-grid", "beam2d.ugx")
+if util.HasParamOption("-sX") then
+	gridName = util.GetParam("-grid", "beam2d_stretched_X.ugx")
+elseif util.HasParamOption("-sY") then
+	gridName = util.GetParam("-grid", "beam2d_stretched_Y.ugx")
+end
 
 
 --------------------------------------------------------------------------------------------------
@@ -172,6 +180,8 @@ approxSpace:print_statistic()
 -------------------------------------------
 print ("Setting up Assembling")
 
+
+--set_debug(debugID.RSAMG.Coarsening, 2)
 
 -- Diffusion Tensor setup
 --diffusionMatrix = LuaUserMatrix("ourDiffTensor"..dim.."d")
@@ -359,24 +369,28 @@ if true then
 	
 	-- amg:set_delta(1e7)
 	-- amg:set_delta(1e5)		
-	
+		
 	amg:set_max_nodes_for_base(maxBase)
 	amg:set_max_levels(maxLevels)
 	-- amg:set_debug_level_calculate_parent_pairs(2)
-	-- amg:set_debug_level_precalculate_coarsening(4)
+	--amg:set_debug_level_precalculate_coarsening(4)
 	-- amg:set_debug_level_external_coarsening(4)
+	
 	
 	jac2 = Jacobi()
 	jac2:set_damp(0.3)
-	amg:set_testvector_smooths(0)
+	amg:set_testvector_smooths(1)
 	amg:set_testvector_smoother(jac2)
 	amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
+	
+	
 	
 	if false then
 		amg:set_testvector_from_matrix_rows()
 	else
 		-- amg:set_testvectors_LE(1e4)
 		-- amg:set_testvectors_LE(1e7) -- gg
+		-- amg:set_testvectors_LE_2d(1e3, 1e3)
 		amg:set_testvectors_LE_2d(1e3, 1e3)
 		bWriteMat = true		
 	end	
@@ -388,10 +402,32 @@ if true then
 		amg:set_testvectors_LE(1e3)
 	else
 		-- neumann_stretched
-		amg:set_delta(0.26)
+		--amg:set_delta(0.26)
+		amg:set_delta(0.4)
 		amg:set_theta(0.9)
 		amg:set_testvectors_LE_2d(1e3, 1e3)
+		--amg:set_testvector_from_matrix_rows()
 	end
+	--amg:set_delta(1.4)
+	
+	--amg:set_aggressive_coarsening(true)
+	case = 2
+	if case == 1 then
+		amg:set_H_as_inverse(true)
+		amg:set_delta(2)
+	elseif case == 2 then
+		amg:set_H_as_inverse(false)
+		amg:set_aggressive_coarsening(false)
+		amg:set_delta(0.3)
+	else
+		amg:set_H_as_inverse(true)
+		amg:set_aggressive_coarsening(true)
+		--amg:set_delta(1.4)
+		amg:set_delta(1.4)
+	
+	end
+	
+	
 else
 
 	print ("create AMG... ")
@@ -421,10 +457,10 @@ end
 
 		
 
-
+amg:set_injection_restriction(false)
 -- create Convergence Check
 convCheck = ConvCheck()
-convCheck:set_maximum_steps(50)
+convCheck:set_maximum_steps(60)
 convCheck:set_minimum_defect(1e-15)
 convCheck:set_reduction(1e-20)
 
@@ -504,13 +540,14 @@ if true then
 	domainDisc:adjust_solution(u)
 	
 		-- 2. apply solver
-	print("Apply solver.")
-	if ApplyLinearSolver(linOp, u, b, gmgCGSolver) == false then
-		print("Could not apply linear solver.");
+	if false then
+		print("Apply solver.")
+		if ApplyLinearSolver(linOp, u, b, gmgCGSolver) == false then
+			print("Could not apply linear solver.");
+		end
+		
+		print("done");
 	end
-	
-	print("done");
-	
 	uEx = GridFunction(approxSpace)
 	uEx:assign(u)
 	
@@ -523,7 +560,7 @@ if true then
 	domainDisc:adjust_solution(u)
 		-- 2. apply solver
 	print("Apply solver.")
-	gmgConvCheck:set_maximum_steps(5)
+	--gmgConvCheck:set_maximum_steps()
 	
 	
 	--gmg:set_debug(dbgWriter)
@@ -540,7 +577,10 @@ if true then
 	--SaveVectorForConnectionViewer(u, A, "gmg_u.vec")	
 	SaveVectorForConnectionViewer(b, A, "gmg_b.vec")
 end
-		
+	print(amg:tostring())
+	amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
+	amg:set_max_parents(3)
+	amg:set_H_reduce_interpolation_nodes_parameter(0.5)	
 
 -- 2. init solver for linear Operator
 print("Init solver for operator.")
@@ -549,24 +589,31 @@ print("Init solver for operator.")
 	linSolver:set_convergence_check(convCheck)
 	linSolver:init(A)
 
+	
+
 	print("Apply solver: LINEAR SOLVER.")
 	srand(iSeed)
 	b:assign(b2)
-	u:set_random(-1.0, 1.0)
+	u:set_random(-1.0, 1.0)	
 	domainDisc:adjust_solution(u)
 	tBefore = os.clock()
 	linSolver:apply_return_defect(u,b)	
+	SaveVectorForConnectionViewer(u, "amg_u20.vec")
 	tSolve = os.clock()-tBefore
 	print("done")
+	
 	
 	lastReduction = convCheck:defect()/convCheck:previous_defect()
 	steps = convCheck:step()
 	solution = GridFunction(approxSpace)
 	solution:assign(u)
 	SaveVectorDiffForConnectionViewer(u, uEx, "amg_diff.vec")
-	SaveVectorForConnectionViewer(u, A, "amg_u.vec")	
+	SaveVectorForConnectionViewer(u, A, "amg_u.vec")
+	SaveVectorForConnectionViewer(u, "amg_u2.vec")		
 	SaveVectorForConnectionViewer(b, A, "amg_b.vec")
-
+	amg:check_interpolation(u, "u")
+	
+exit()
 ---------
 if true then
 	linSolver = CG()

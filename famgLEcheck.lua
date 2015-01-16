@@ -22,7 +22,6 @@ ug_load_script("solver_util/setup_famg.lua")
 paramOutputProcess = util.GetParamNumber("-outproc", 0, "Output processor")
 numRefs = util.GetParamNumber("-numRefs", 1, "number of refinements")
 numPreRefs = util.GetParamNumber("-numPreRefs", -1, "number of refinements before ")
-
 maxBase = util.GetParamNumber("-maxBase", 2, "maximum number of nodes before base solver is used")
 maxLevels = util.GetParamNumber("-maxLevels", 2, "maximum number of AMG levels")
 
@@ -33,7 +32,6 @@ bAggressiveCoarsening = util.HasParamOption("-AC", "if true, use aggressive coar
 famgDelta = util.GetParamNumber("-delta", 0.1, "Interpolation quality F may not be worse than this (F < m_delta)")
 famgTheta = util.GetParamNumber("-theta", 0.9, "with multiple parents, discard pairs with m_theta * F > min F.")
 
-outdir = util.GetParam("-outdir", "", "output directory")
 logtofile = util.GetParam("-logtofile", nil, "the file to write logs to")
 bWCycle = util.HasParamOption("-Wcycle", "if true, use W-Cycle, otherwise: V-Cycle.")
 
@@ -41,7 +39,14 @@ iTestvectorSmooths = util.GetParamNumber("-iTestvectorSmooths", 2, "nr of testve
 bUseJacobi = util.HasParamOption("-bUseJacobi", "if true, use jacobi as smoother. otherwise use gs")
 iSmooths = util.GetParamNumber("-iSmooths", 2, "nr of pre/postsmooths")
 
-gridName = util.GetParam("-grid", "beam2d.ugx")
+iGrid = util.GetParamNumber("-g", 0)
+if iGrid == 0 then
+	gridName = util.GetParam("-grid", "beam2d.ugx")
+elseif iGrid == 1 then
+	gridName = util.GetParam("-grid", "unit_square/unstructured_3k.ugx") 
+else
+	gridName = util.GetParam("-grid", "unit_square/unstructured_33k.ugx")
+end
 
 stretchX = util.GetParamNumber("-stretchX", 1.0)
 stretchY = util.GetParamNumber("-stretchY", 1.0) 
@@ -53,10 +58,18 @@ util.CheckAndPrintHelp(
 )
 --------------------------------------------------------------------------------------------------
 
+outdir=os.getenv("HOME").."/results/famgLE/"
+commandLineFilename = util.GetUniqueFilenameFromCommandLine()
+thePath = outdir.."famgLE"..commandLineFilename.."/"
+CreateDirectory(thePath)
 
-GetLogAssistant():set_output_process(paramOutputProcess)
+thePath = os.getenv("HOME").."/matrices/"
 
-matrixWritePath=os.getenv("HOME").."/matrices/"
+GetLogAssistant():enable_file_output(false, "")
+GetLogAssistant():enable_file_output(true, thePath.."log.txt")
+
+matrixWritePath=thePath
+
 print("Writing matrices to "..matrixWritePath)
 if bWriteMat and outdir == "" then
 	outdir = matrixWritePath
@@ -210,7 +223,11 @@ if bExternalCoarsening then
 		amg:set_strong_connection_external(0.1)
 	end
 end
-amg:set_cycle_type(1)
+if bWCycle then
+	amg:set_cycle_type(2)
+else
+	amg:set_cycle_type(1)
+end
 
 -- amg:set_delta(1e7)
 -- amg:set_delta(1e5)		
@@ -224,7 +241,7 @@ amg:set_max_levels(maxLevels)
 
 jac2 = Jacobi()
 jac2:set_damp(0.3)
-amg:set_testvector_smooths(0)
+amg:set_testvector_smooths(iTestvectorSmooths)
 amg:set_testvector_smoother(jac2)
 amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
 
@@ -234,7 +251,7 @@ amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
 
 
 
--- ugshell -ex amg/famgLEcheck.lua -numRefs 5 -maxLevels 5 -stretchX 0.1  -delta 0.1 -Hinv 0 -maxParents 3 -threePenalty 1.5 ---> 0.032
+-- ugshell -ex amg/famgLEcheck.lua -numRefs 5 -maxLevels 5 -stretchX 0.1  -delta 0.1 -Hinv 0 -	 3 -threePenalty 1.5 ---> 0.032
 -- ugshell -ex amg/famgLEcheck.lua -numRefs 5 -maxLevels 5 -stretchX 0.1  -delta 0.1 -Hinv 0 -maxParents 4 -threePenalty 1.5 ---> 0.044
 
 -- ugshell -ex amg/famgLEcheck.lua -numRefs 5 -maxLevels 5 -stretchX 0.5  -delta 0.1 -Hinv 0 -maxParents 3 -threePenalty 1.5 ---> 0.21
@@ -283,22 +300,22 @@ end
 amg:set_one_init(true)
 
 
-	vectorWriter = GridFunctionPositionProvider()
-	vectorWriter:set_reference_grid_function(u)
-	amg:set_position_provider(vectorWriter)
+vectorWriter = GridFunctionPositionProvider()
+vectorWriter:set_reference_grid_function(u)
+amg:set_position_provider(vectorWriter)
 
---if bWriteMat then
+if bWriteMat then
 	amg:set_write_testvectors(true)
 	amg:set_write_f_values(true)
 	amg:set_matrix_write_path(matrixWritePath)
---end	
+end	
 
 		
 
 amg:set_injection_restriction(false)
 -- create Convergence Check
 convCheck = ConvCheck()
-convCheck:set_maximum_steps(30)
+convCheck:set_maximum_steps(50)
 convCheck:set_minimum_defect(1e-15)
 convCheck:set_reduction(1e-20)
 
@@ -320,30 +337,56 @@ b2:assign(b)
 -------------------------------------------
 -- 1. init operator
 
-print(amg:tostring())
+print(amg:config_string())
 amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
 
 amg:set_H_reduce_interpolation_nodes_parameter(0.5)	
 
 -- 2. init solver for linear Operator
-print("Init solver for operator.")
-linSolver = LinearSolver()
-linSolver:set_preconditioner(amg)
-linSolver:set_convergence_check(convCheck)
-linSolver:init(A)
+
+amg:set_one_init(true)
 
 
 
 print("Apply solver: LINEAR SOLVER.")
-srand(iSeed)
-b:assign(b2)
-u:set_random(-1.0, 1.0)	
-domainDisc:adjust_solution(u)
-tBefore = os.clock()
-linSolver:apply_return_defect(u,b)	
-SaveVectorForConnectionViewer(u, "amg_u20.vec")
-tSolve = os.clock()-tBefore
-print("done")
+	print("Init solver for operator.")
+	linSolver = LinearSolver()
+	linSolver:set_preconditioner(amg)
+	linSolver:set_convergence_check(convCheck)
+	linSolver:init(A)
+	
+	srand(iSeed)
+	b:assign(b2)
+	u:set_random(-1.0, 1.0)	
+	domainDisc:adjust_solution(u)
+	tBefore = os.clock()
+	linSolver:apply_return_defect(u,b)	
+	SaveVectorForConnectionViewer(u, "amg_u20.vec")
+	tSolve = os.clock()-tBefore
+	print("done")
+
+	lastReduction = convCheck:defect()/convCheck:previous_defect()
+	avgReduction = convCheck:avg_rate()
+	steps = convCheck:step()
+
+print("Apply solver: CG SOLVER.")
+	cgSolver = CG()
+	cgSolver:set_preconditioner(amg)
+	cgSolver:set_convergence_check(convCheck)
+	cgSolver:init(A)
+
+	srand(iSeed)
+	b:assign(b2)
+	u:set_random(-1.0, 1.0)	
+	domainDisc:adjust_solution(u)
+	tBefore = os.clock()
+	cgSolver:apply_return_defect(u,b)	
+	tSolveCG = os.clock()-tBefore
+	print("done")
+	
+	CGlastReduction = convCheck:defect()/convCheck:previous_defect()
+	CGavgReduction = convCheck:avg_rate()
+	CGsteps = convCheck:step()
 
 
 if util.HasParamOption("-check") then
@@ -355,28 +398,39 @@ if util.HasParamOption("-check") then
 	amg:check(u, b)
 end
 
-lastReduction = convCheck:defect()/convCheck:previous_defect()
-steps = convCheck:step()
+
 
 -- ugshell -ex amg/famgLEcheck.lua -numRefs 5 -maxLevels 4 -stretchX 20  -delta 0.1 -Hinv 0 -maxParents 3  -threePenalty 1.4 --> 1.4
 
-if ProcRank() == 0 then
+print(amg:level_information_str())
+
+if GetProcessRank() == 0 then
 	stats = {	
-	{ "procs", NumProcs() },
+	{ "procs", GetNumProcesses() },
 	--{ "numPreRefs", numPreRefs},
+	{ "iGrid", iGrid },
 	{ "numRefs", numRefs },
 	{ "maxLevels", maxLevels},
 	{ "stretchX", stretchX},
 	{ "delta", delta},
 	{ "Hinv", Hinv },
 	{ "maxParents", maxParents },
+	{ "threePenalty", threePenalty },
 
 	{ "steps", steps},
 	{ "lastReduction", lastReduction},
+	{ "avgReduction", avgReduction}, 
+	
+	{ "CGsteps", CGsteps},
+	{ "CGlastReduction", CGlastReduction},
+	{ "CGavgReduction", CGavgReduction}, 
+	
 
 	{ "c_A", amg:get_operator_complexity()},
 	{ "c_G", amg:get_grid_complexity()},
 	{ "used Levels", amg:get_used_levels()},
+	{ "fineSize", amg:get_level_information(0):get_nr_of_nodes() },
+	{ "coarseSize", amg:get_level_information(amg:get_used_levels()-1):get_nr_of_nodes() },
 	 
 	{ "date", os.date("y%Ym%md%d") },
 	{ "SVN Revision", GetSVNRevision()},
@@ -388,8 +442,10 @@ if ProcRank() == 0 then
 		util.writeFileStats(stats, outdir.."stats.txt")
 	end
 end
+
 	
 print("\n")		
 util.PrintArguments()
 util.PrintIgnoredArguments()
+
 --WriteProfileData("famgLE.pdxml")

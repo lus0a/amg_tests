@@ -56,7 +56,7 @@ ninePoint = util.HasParamOption("-ninePoint", "for 2d: if true, use ninepoint, o
 logtofile = util.GetParam("-logtofile", nil, "the file to write logs to")
 bWCycle = util.HasParamOption("-Wcycle", "if true, use W-Cycle, otherwise: V-Cycle.")
 
-iTestvectorSmooths = util.GetParamNumber("-iTestvectorSmooths", 2, "nr of testvector smooth for construction of P")
+iTestvectorSmooths = util.GetParamNumber("-iTestvectorSmooths", 0, "nr of testvector smooth for construction of P")
 bUseJacobi = util.HasParamOption("-bUseJacobi", "if true, use jacobi as smoother. otherwise use gs")
 iSmooths = util.GetParamNumber("-iSmooths", 2, "nr of pre/postsmooths")
 
@@ -71,6 +71,12 @@ dim = 3 -- dim is always 3
 -- grid
 gridName = util.GetParam("-grid", "cembalo/cembalo_3d_test2.ugx")
 gridName = util.GetParam("-grid", "cembalo/rechteck_100_hoch.ugx")
+gridName = util.GetParam("-grid", "unit_square/unit_cube_hex.ugx")
+gridName = util.GetParam("-grid", "cembalo/cube_one_bnd.ugx")
+
+gridName = util.GetParam("-grid", "cembalo/cembalo_3d_test2.ugx")
+
+gridName = util.GetParam("-grid", "cembalo/cube_one_bnd.ugx")
 
 -- rho = density
 rho = util.GetParamNumber("-rho", 0.00050, "density")
@@ -317,7 +323,7 @@ if true then
 	gmg = GeometricMultiGrid(approxSpace)
 	gmg:set_transfer(transfer)
 	gmg:set_discretization(domainDisc)
-	gmg:set_base_level(0) -- 1
+	gmg:set_base_level(1) -- 1
 	gmg:set_base_solver(LU())
 	gmg:set_smoother(gs)
 	gmg:set_cycle_type(1)
@@ -329,6 +335,7 @@ if true then
 	amg = FAMGPreconditioner()
 	amg = util.SetupFAMGPreconditioner(base, presmoother, postsmoother)
 	amg:set_write_f_values(true)
+	amg:set_verbose(1)
 	
 	if bExternalCoarsening then
 		amg:set_external_coarsening(true)
@@ -341,17 +348,16 @@ if true then
 	end
 	amg:set_cycle_type(1)
 	
-	-- amg:set_delta(1e7)
-	-- amg:set_delta(1e5)		
-	
+
 	amg:set_max_nodes_for_base(maxBase)
 	amg:set_max_levels(maxLevels)
+	
 	-- amg:set_debug_level_calculate_parent_pairs(2)
 	-- amg:set_debug_level_precalculate_coarsening(4)
 	-- amg:set_debug_level_external_coarsening(4)
 	
 	jac2 = Jacobi()
-	jac2:set_damp(0.3)
+	jac2:set_damp(0.4)
 	amg:set_testvector_smooths(0)
 	amg:set_testvector_smoother(jac2)
 	amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
@@ -366,11 +372,10 @@ if true then
 	end	
 	
 	
-	amg:set_delta(0.12) -- rechteck
-	 --amg:set_delta(0.2) -- cembalo numref 1
+	amg:set_delta(famgDelta)
 	 
-	amg:set_theta(0.7) 
-	amg:set_testvectors_LE_3d(1e3, 1e9, 1e9, 1e9)
+	amg:set_theta(0.8) 
+	amg:set_testvectors(TestvectorsLinear3d())
 	
 	amg:set_one_init(true)
 	
@@ -382,12 +387,15 @@ if true then
 	amg:set_write_f_values(true)
 	amg:set_matrix_write_path(matrixWritePath)
 	
-	print(amg:tostring())
+	
 ---------------------------------------------------------------
-	
+	gs = GaussSeidel()
 	gmgSolver = LinearSolver()
-	
-	gmgSolver:set_preconditioner(amg)
+	if util.HasParamOption("-gmg") then
+		gmgSolver:set_preconditioner(gmg)
+	else
+		gmgSolver:set_preconditioner(amg)
+	end
 	--gmgSolver:set_preconditioner(Jacobi(0.5)) -- 3.62e0
 	-- gmgSolver:set_preconditioner(Jacobi(0.6)) -- 5.86e+2 (rate 1.004 ! -> divergenz)
 	--gmgSolver:set_preconditioner(GaussSeidel()) -- 8.790e-1
@@ -438,21 +446,23 @@ if true then
 	u:set_random(-1.0, 1.0)
 	domainDisc:adjust_solution(u)
 	
-	jac = Jacobi(0.5)
+
 	amg:set_fsmoothing(false)
-	amg:set_presmoother(jac)
-	amg:set_postsmoother(jac)	
-	amg:set_num_presmooth(10)
-	amg:set_num_postsmooth(10)
+	amg:set_presmoother(gs)
+	amg:set_postsmoother(gs)	
+	amg:set_num_presmooth(3)
+	amg:set_num_postsmooth(3)
 	amg:set_galerkin_truncation(0)
 		
 	if true then	
 		--amg:set_debug_write_all_vectors(true)	
 		gmgConvCheck:set_maximum_steps(40)
+		print(amg:config_string())
 		print("Apply solver.")
 		if ApplyLinearSolver(linOp, u, b, gmgSolver) == false then
 			print("Could not apply linear solver.");
 		end
+		SaveVectorForConnectionViewer(u, "gmg_u.vec")
 	else		
 			-- 2. apply solver
 		print("Apply solver.")

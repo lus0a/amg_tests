@@ -172,6 +172,9 @@ for k=1,numVecs do
 end
 
 
+eig = EigenSolver()
+
+
 for filteringStep=1,20 do
 	print("--------------------------------------------------------")
 	print("                        "..filteringStep)
@@ -182,6 +185,7 @@ for filteringStep=1,20 do
 	amg = createAMG()
 	amg:set_one_init(true)
 	createLS(amg)
+	print(amg:config_string())
 	
 	if util.HasParamOption("-writeMatrices") then
 		for k=1,numVecs do
@@ -210,6 +214,7 @@ for filteringStep=1,20 do
 		v[k] = RandomFunction()
 		smooth(v[k], lip, 10, A)
 		VecScaleAssign(v[k], 1/VecNorm(v[k]), v[k])
+		eig:add_vector(v[k])
 	end
 	
 	for k1=1,numVecs do
@@ -226,6 +231,31 @@ for filteringStep=1,20 do
 	end end
 	
 end
+--doEVapproximation = true
+if doEVapproximation then
+	eig:set_linear_operator_A(A)
+	eig:set_max_iterations(1)
+	eig:set_precision(1e-12)
+
+	ev={}
+	eig:set_preconditioner(lip)
+	eig:apply()
+	for i=1,4 do
+		ev[i] = GridFunction(approxSpace)
+		ev[i]:enforce_consistent_type()
+		VecScaleAssign(ev[i], 1.0, eig:get_eigenvector(i-1))
+		SaveVectorForConnectionViewer(ev[i], "ev"..i..".vec")
+	end
+	
+	amg = createAMG()
+	amg:set_one_init(true)
+	createLS(amg)
+	amg:set_testvectors(TestvectorsExternal({ev[1], ev[2]}))
+	solver:init(A)
+	print(amg:level_information_str())
+	print(solve_random_d(solver, approxSpace))
+end
+	
 
 if ProcRank() == 0 then
 	stats = {

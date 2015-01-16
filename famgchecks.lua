@@ -16,7 +16,9 @@ ug_load_script("ug_util.lua")
 ug_load_script("util.lua")
 
 
-AssertPluginsLoaded({famg})
+RequiredPlugins({"amg"})
+
+
 
 -- command line parameters
 --------------------------------------------------------------------------------------------------
@@ -100,6 +102,9 @@ if dim == 2 then
 	else
 		gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_tri_2x2.ugx")
 	end	
+	if util.HasParamOption("-gitarre") then
+		gridName = util.GetParam("-grid", "gitarre/gitarreLaplace.ugx")
+	end
 end
 if dim == 3 then
 	gridName = util.GetParam("-grid", "unit_square/unit_cube_hex.ugx")
@@ -203,12 +208,17 @@ end
 	
 	-- anisotropic diffusion in corners
 	function cbAnisoDiffTensor2d(x, y, t)
-		local fac1 = 1/1+exp(alpha*(x+y-1)) 
-		local fac2 = 1- fac1
-		return	fac1*epsx+fac2, 0, 
-				0, fac1+fac2*epsy
+		--return 0.01, 0, 0, 1
+		
+		if x>0 then
+			return 1, 0, 0, 1
+		else
+			return 0.1, 0, 0, 0.1
+		end
+		
+		
 	end
---	anisoDiffTensor2d = LuaUserMatrix("cbAnisoDiffTensor2d")
+	anisoDiffTensor2d = LuaUserMatrix("cbAnisoDiffTensor2d")
 
 	
 	function CreateRotatedAnisotropyMatrix2d(alpha, epsilon)
@@ -216,8 +226,8 @@ end
 		local cosalpha = math.cos(alpha)
 		RAmat = ConstUserMatrix()
 		-- print(sinalpha.." "..cosalpha.." "..epsilon)
-		-- print((sinalpha*sinalpha + epsilon*cosalpha*cosalpha)..", "..(1-epsilon)*sinalpha*cosalpha)
-		-- print((1-epsilon)*sinalpha*cosalpha..", "..epsilon*sinalpha*sinalpha + cosalpha*cosalpha)
+		 print((sinalpha*sinalpha + epsilon*cosalpha*cosalpha)..", "..(1-epsilon)*sinalpha*cosalpha)
+		 print((1-epsilon)*sinalpha*cosalpha..", "..epsilon*sinalpha*sinalpha + cosalpha*cosalpha)
 		RAmat:set_entry(0,0,sinalpha*sinalpha + epsilon*cosalpha*cosalpha)
 		RAmat:set_entry(0,1,(1-epsilon)*sinalpha*cosalpha)
 		RAmat:set_entry(1,0,(1-epsilon)*sinalpha*cosalpha)
@@ -267,7 +277,7 @@ else
 	--  Setup User Functions
 	-------------------------------------------
 	if problem == "rotatedAniso" then
-	diffusionMatrix = CreateRotatedAnisotropyMatrix2d(RAalpha, RAepsilon)
+	diffusionMatrix = anisoDiffTensor2d -- CreateRotatedAnisotropyMatrix2d(RAalpha, RAepsilon)
 	velocityField = ConstUserVector2d(0)
 	reaction = ConstUserNumber(0)
 	rhs = ConstUserNumber(0)
@@ -303,6 +313,7 @@ exit()
 end
 
 
+
 -- create Refiner
 assert(numPreRefs < numRefs, "numPreRefs must be smaller than numRefs");
 
@@ -313,8 +324,12 @@ if numPreRefs > 0 then
 	refiner:refine()
 	end
 end
+
 -- Distribute the domain to all involved processes
 assert(util.DistributeDomain(dom) == true, "Error while Distributing Grid.")
+
+
+
 
 -- Perform post-refine
 if numRefs > 0 then
@@ -323,6 +338,14 @@ if numRefs > 0 then
 	refiner:refine()
 	end
 end
+
+d = util.GetParamNumber("-d", 0.0)
+if d > 0.0 then
+	d = math.pow(d, numRefs)
+	print("randomize ="..d)
+	RandomizeDomain(dom, d, d, d)
+end
+
 tGrid = os.clock()-tBefore
 
 
@@ -492,17 +515,12 @@ if bRSAMG == false then
 	amg:set_theta(famgTheta)
 	amg:set_aggressive_coarsening(bAggressiveCoarsening)
 		
-	-- add testvector which is 1 everywhere and only 0 on the dirichlet Boundary.
-	testvectorwriter = CreateAMGTestvectorDirichlet0(dirichletBND, approxSpace)
-	testvector = GridFunction(approxSpace)
-	testvectorwriter:update(testvector)	
-	amg:add_testvector(testvectorwriter, 1.0)
-
 
 	jac2 = Jacobi()
 	jac2:set_damp(0.8)
+	amg:set_testvectors(TestvectorsConstant())
 	amg:set_testvector_smooths(iTestvectorSmooths)
-	amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
+	amg:set_damping_for_smoother_in_interpolation_calculation(0.5)
 	amg:set_testvector_smoother(jac2)
 		
 	if bWriteMat then
@@ -531,14 +549,14 @@ if bRSAMG == false then
 	-- amg:set_debug_level_overlap(4,4)
 	-- amg:set_debug_level_calculate_parent_pairs(6)
 	-- amg:set_debug_level_calculate_parent_pairs(6)
-	-- amg:set_debug_level_precalculate_coarsening(4)
+	 -- amg:set_debug_level_precalculate_coarsening(4)
 	-- amg:set_galerkin_truncation(1e-6)
 	-- amg:set_H_reduce_interpolation_nodes_parameter(0.1)
 	amg:set_galerkin_truncation(1e-9)
 	amg:set_H_reduce_interpolation_nodes_parameter(0.0) --1)
 	
 	if bExternalCoarsening then
-		amg:set_prereduce_A_parameter(0.1)
+		amg:set_prereduce_A_parameter(0.0)
 	else
 		amg:set_prereduce_A_parameter(0.0)	
 	end
@@ -590,9 +608,10 @@ amg:set_max_nodes_for_base(maxBase)
 amg:set_max_fill_before_base(0.5)
 amg:set_fsmoothing(true)
 amg:set_prolongation_truncation(0)
-amg:tostring()
+print(amg:config_string())
 
 
+-- SetDebugLevel(debugID.AMG.Agglomeration, 4)
 
 -- create Convergence Check
 convCheck = ConvCheck()
@@ -692,6 +711,9 @@ if util.HasParamOption("-bCheck") then
 	--print("amg:check_fsmoothing()")
 	-- amg:check_fsmoothing()
 end	
+
+
+amg:check_vector(TestvectorsLinear2d())
 	
 ---------
 
@@ -782,8 +804,8 @@ if not bCheck and bWriteStats then
 end
 
 print("\n")		
-util.PrintArguments()
-util.PrintIgnoredArguments()
+--util.PrintArguments()
+--util.PrintIgnoredArguments()
 --print(GetProfileNode("main"):call_tree())
 if util.HasParamOption("-bCRS") then
 	WriteProfileData("amgCRS.pdxml")

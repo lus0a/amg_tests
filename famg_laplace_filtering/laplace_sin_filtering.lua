@@ -13,36 +13,13 @@
 ug_load_script("../setup.lua")
 
 InitSignals()
-
-
-if util.HasParamOption("-33k") then
-	gridName = util.GetParam("-grid", "amgtests/unstructured_33k.ugx")
-	requiredSubsets = {"Inner", "Left", "Right", "Top", "Bottom"}
-	boundaries = {"Bottom"}
-elseif util.HasParamOption("-3k") then
-	gridName = util.GetParam("-grid", "amgtests/unstructured_3k.ugx")
-	requiredSubsets = {"Inner", "Left", "Right", "Top", "Bottom"}
-	boundaries = {"Bottom"}
-else
-	gridName = util.GetParam("-grid", "unit_square_01/unit_square_01_quads_2x2.ugx")
-	requiredSubsets = {"Inner", "Boundary"}
-	boundaries = {"Boundary"}
-end
-
-util.CheckAndPrintHelp("");
-
-
-dom = MyLoadGrid({ gridName = gridName, requiredSubsets = requiredSubsets} )
-
-approxSpace = CreateStdApproxSpace(dom)
-domainDisc = CreateStdDisc({approxSpace=approxSpace, boundaries=boundaries})
-
-
+amgdisc.LoadStdDomAndApproxSpace()
+A, u, b = amgdisc.AssembleAxb(approxSpace, domainDisc)
 
 --------------------------------------------------------------------------------
 --  Algebra
 --------------------------------------------------------------------------------
-print ("Setting up Algebra Solver")
+
 
 convCheck = ConvCheck(30, 1e-11, 1e-12, false)
 precond = Jacobi()
@@ -53,9 +30,6 @@ precond = Jacobi()
 --------------------------------------------------------------------------------
 
 -- 1. Create Algebra
-A = MatrixOperator()
-b = GridFunction(approxSpace)
-u = GridFunction(approxSpace)
 
 
 u:set(0.0)
@@ -109,7 +83,7 @@ end
 --amg:set_testvectors( CreateTV({ {1, 1}, {1, 2}, {2,1} }) )
 function createAMG1()
 	local amg = FAMGPreconditioner()
-	SetFAMGCommandLineParameters(amg, {
+	amgsetup.SetFAMGCommandLineParameters(amg, {
 		--delta=0.030473,
 		delta=0.03,
 		smooths=4,
@@ -126,13 +100,6 @@ function createAMG1()
 		amg:set_matrix_write_path(matrixWritePath)
 	end
 	amg:set_write_testvectors(true)
-	amg:set_delta(0.0303473)
-	--amg:set_delta(0.03035)
-	amg:set_delta(0.1)
-	
-	amg:set_damping_for_smoother_in_interpolation_calculation(0.6)
-	amg:set_testvector_smooths(4)
-	amg:set_testvector_smoother(Jacobi(0.6))
 	
 	
 	amg:set_write_f_values(true)

@@ -7,6 +7,8 @@ checkEVs = util.GetParamNumber("-checkEVs", 8)
 if false then
 amg = FAMGPreconditioner()
 end
+amg = createAMG1()
+createLS(amg)
 --amg:set_delta(0.031)
 amg:set_delta(10)
 amg:set_max_nodes_for_base(1)

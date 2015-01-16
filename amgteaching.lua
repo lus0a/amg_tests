@@ -8,7 +8,7 @@
 ----------------------------------------------------------
 
 ug_load_script("ug_util.lua")
-
+ug_load_script("amgteaching_problems.lua")
 --------------------------------------------------------------------------------
 -- Checking for parameters (begin)
 --------------------------------------------------------------------------------
@@ -43,15 +43,6 @@ activateDbgWriter = util.GetParamNumber("-dbgw", 0) -- set to 0 i.e. for time me
 						    -- >= 1 for debug output: this sets
 						    -- 'fetiSolver:set_debug(dbgWriter)'
 
--- parameters for diffusion coefficients
-epsx = util.GetParamNumber("-epsx", 1.0)
-epsy = util.GetParamNumber("-epsy", 1.0)
-
-uvel = util.GetParamNumber("-uvel", 0.0)
-vvel = util.GetParamNumber("-vvel", 0.0)
-
-
-alpha = util.GetParamNumber("-alpha", 0.0)
 ilubeta = util.GetParamNumber("-ilu-beta", 0.0)
 
 -- Display parameters (or defaults):
@@ -78,168 +69,7 @@ print("    ilu-beta = " .. ilubeta)
 -- choose dimension and algebra
 InitUG(dim, AlgebraType("CPU", 1));
 
---------------------------------
--- User Data Functions 2d (begin)
---------------------------------
-	
-	
-	-- A) DIFFUSION
-	-- standard (anisotropic) diffusion 
-	function stdDiffTensor2d(x, y, t)
-	--print (epsx.." "..epsy)
-	return	epsx, 0, 0, epsy end
-	
-	-- anisotropic diffusion in corners
-	function anisoDiffTensor2d(x, y, t)
-		local fac1 = 1/1+exp(alpha*(x+y-1)) 
-		local fac2 = 1- fac1
-		return	fac1*epsx+fac2, 0, 
-				0, fac1+fac2*epsy
-	end
-	
-	-- hedgehog diffusion 
-	function hedgehogDiffTensor2d(x, y, t)
-		if x<0.5 then 
-			if y<0.5 then return 1.0, 0, 0, 1.0 
-			else return epsx, 0, 0, 1.0 end
-		else
-			if y<0.5 then return 1.0, 0, 0, epsy 
-			else return 1.0, -1.0, -1.0, 1.0 end
-		end
-		
-		-- should never happen
-		return 0, 0, 0, 0 
-	end
-
-	
-	
-	-- discontinuous coefficient
-	function jumpDiffTensor2d(x, y, t)
-		if (math.abs (x-0.5)<1/4 and math.abs(y-0.5)<1/4) then
-			return	epsx, 0, 0, epsy
-		else 
-			return	1, 0, 0, 1
-		end
-	end
-	
-	-- B) VELOCITIES
-	function zeroVelocityField2d(x, y, t)
-		return	0, 0
-	end
-	
-	function constVelocityField2d(x, y, t)
-		return	uvel, vvel
-	end
-
-	function recirculatingVelocityField2d(x, y, t)
-		local urecirc = 4.0*x*(1-x)*(1-2*y) 
-		local vrecirc = -4.0*y*(1-y)*(1-2*x)
-		return	urecirc, vrecirc
-	end
-	
-	-- C) REACTIONS
-	function zeroReaction2d(x, y, t)
-		return	0
-	end
-	
-	
-	-- D) SOURCES 
-	function stdSource2d(x, y, t)
-		local s = 2*math.pi
-		return	s*s*(math.sin(s*x) + math.sin(s*y))
-		--return -2*y
---		return 0;
-	end
-	
-	-- E) BOUNDARY
-	function stdNeumannBnd2d(x, y, t)
-		--local s = 2*math.pi
-		--return -s*math.cos(s*x)
-		return true, -2*x*y
-	end
-	
-	function stdDirichletBnd2d(x, y, t)
-	--	local s = 2*math.pi
-	--	return true, math.sin(s*x) + math.sin(s*y)
-	return true, 0
-		--return true, x*x*y
---		return true, 2.5
-	end
---------------------------------
--- User Data Functions 2d (end)
---------------------------------
-
-	
-----------------------------------
--- User Data Functions 3d (begin)
-----------------------------------
-	
-
--- 
-
-	function ourDiffTensor3d(x, y, z, t)
-		return	1, 0, 0,
-				0, 1, 0,
-				0, 0, 1
-	end
-	
-	function ourVelocityField3d(x, y, z, t)
-		return	0, 0, 0
-	end
-	
-	function ourReaction3d(x, y, z, t)
-		return	0
-	end
-	
-	function ourRhs3d(x, y, z, t)
-		--local s = 2*math.pi
-		--return	s*s*(math.sin(s*x) + math.sin(s*y) + math.sin(s*z))
-		return 0;
-	end
-	
-	function ourNeumannBnd3d(x, y, t)
-		--local s = 2*math.pi
-		--return -s*math.cos(s*x)
-		return true, -2*x*y*z
-	end
-	
-	function ourDirichletBnd3d(x, y, z, t)
-		--local s = 2*math.pi
-		--return true, math.sin(s*x) + math.sin(s*y) + math.sin(s*z)
-		return true, x
-	end
---------------------------------
--- User Data Functions (end)
---------------------------------
-
--- create Instance of a Domain
-print("Create Domain.")
-dom = Domain()
-
--- load domain
-print("Load Domain from File.")
-LoadDomain(dom, gridName)
-
--- create Refiner
-print("Create Refiner")
-if numPreRefs > numRefs then
-	print("It must be choosen: numPreRefs <= numRefs");
-	exit();
-end
-
--- Create a refiner instance. This is a factory method
--- which automatically creates a parallel refiner if required.
-refiner = GlobalDomainRefiner(dom)
-
--- Performing pre-refines
-print("Perform (non parallel) pre-refinements of grid")
-for i=1,numPreRefs do
-	print( "PreRefinement step " .. i .. " ...")
-	refiner:refine()
-	print( "... done!")
-end
-
--- get number of processes
+dom = util.CreateAndDistributeDomain(gridName, numRefs, numPreRefs, {})
 numProcs = NumProcs()
 
 -- Distribute the domain to all involved processes
@@ -247,50 +77,7 @@ numProcs = NumProcs()
 -- fill a partitionMap (but every process needs one and has to return his map
 -- by calling 'DistributeDomain()', even if in this case the map is empty
 -- for all processes but process 0).
-print("Distribute domain with 'distributionType' = " .. distributionType .. "...")
-partitionMap = PartitionMap()
-
-if ProcRank() == 0 then
-	if distributionType == "bisect" then
-		util.PartitionMapBisection(partitionMap, dom, numProcs)
-		
-	elseif distributionType == "grid2d" then
-		local numNodesX, numNodesY = util.FactorizeInPowersOfTwo(numProcs / numProcsPerNode)
-		util.PartitionMapLexicographic2D(partitionMap, dom, numNodesX,
-										 numNodesY, numProcsPerNode)
-
-	elseif distributionType == "metis" then
-		util.PartitionMapMetis(partitionMap, dom, numProcs)
-										 
-	else
-	    print( "distributionType not known, aborting!")
-	    exit()
-	end
 	
--- save the partition map for debug purposes
-	if verbosity >= 1 then
-		SavePartitionMap(partitionMap, dom, "partitionMap_p" .. ProcRank() .. ".ugx")
-	end
-end
-
-if DistributeDomain(dom, partitionMap, true) == false then
-	print("Redistribution failed. Please check your partitionMap.")
-	exit()
-end
-print("... domain distributed!")
-
---------------------------------------------------------------------------------
--- end of partitioning
---------------------------------------------------------------------------------
-
--- Perform post-refine
-print("Refine Parallel Grid")
-for i=numPreRefs+1,numRefs do
-	print( "Refinement step " .. i .. " ...")
-	refiner:refine()
-	print( "... done!")
-end
-
 -- get subset handler
 sh = dom:subset_handler()
 if sh:num_subsets() ~= 2 then 
@@ -351,6 +138,9 @@ convCheckSmoother = ConvCheck()
 convCheckSmoother:set_maximum_steps(5)
 convCheckSmoother:set_reduction(1e-12)
 convCheckSmoother:set_minimum_defect(1e-14)
+convCheckSmoother:set_verbose(false)
+convCheckSmoother:set_supress_unsuccessful(true)
+
 
 -- create Jacobi Solver
 jacSolver = LinearSolver()
@@ -401,10 +191,11 @@ baseConvCheck:set_maximum_steps(1000)
 baseConvCheck:set_minimum_defect(1e-11)
 baseConvCheck:set_reduction(1e-30)
 baseConvCheck:set_verbose(false)
---base = LU()
 base = LinearSolver()
 base:set_convergence_check(baseConvCheck)
 base:set_preconditioner(ilu)
+
+base = LU()
 
 
 
@@ -449,7 +240,7 @@ convCheckSolver = ConvCheck()
 convCheckSolver:set_maximum_steps(50)
 convCheckSolver:set_minimum_defect(1e-14)
 convCheckSolver:set_reduction(1e-12)
---convCheck:set_verbose(true)
+convCheckSolver:set_verbose(false)
 
 -- create Linear Solver
 linSolver = LinearSolver()
@@ -470,158 +261,6 @@ solver = linSolver
 --  Setup User Functions
 --------------------------------------------------------------------------------
 
---------------------------------------------------------------------------------
---  Setup FV Convection-Diffusion Element Discretization
---------------------------------------------------------------------------------	
-function CreateProblemDependentElemDisc(problem, dim)
-print ("Setting up Assembling")
-
--- Select upwind
-if dim == 2 then 
-
---upwind = NoUpwind2d()
-upwind = FullUpwind2d()
---upwind = WeightedUpwind2d(); upwind:set_weight(0.0)
---upwind = PartialUpwind2d()
-else print("Dim not supported for upwind"); exit() end
-
-elemDisc = ConvectionDiffusion("c", "Inner", "fv1")
-elemDisc:set_upwind(upwind)
-elemDisc:set_diffusion(problem.diffusion)
-elemDisc:set_velocity(problem.velocity)
-elemDisc:set_reaction_rate(problem.reaction)
-elemDisc:set_source(problem.source)
-return elemDisc
-end
-
---------------------------------------------------------------------------------
---  Setup problems
---------------------------------------------------------------------------------
-
-problem = {}
-
--- depending on the dimension we're choosing the appropriate callbacks.
--- we're using the .. operator to assemble the names (dim = 2 -> "ourDiffTensor2d")
-
--- Problem 1: Poisson's eqn. (w/ anisotropy) 
-if false then
-	problem["Poisson"] = {}
-	problem["Poisson"].desc = "Problem 1: Poisson's eqn. (w/ anisotropy)"
-	problem["Poisson"].diffusion = LuaUserMatrix("stdDiffTensor2d")
-	problem["Poisson"].velocity = LuaUserVector("zeroVelocityField2d")
-	problem["Poisson"].reaction = LuaUserNumber("zeroReaction2d")
-	problem["Poisson"].source = LuaUserNumber("stdSource2d")
-	problem["Poisson"].neumann = LuaCondUserNumber("stdNeumannBnd2d")
-	problem["Poisson"].dirichlet = LuaCondUserNumber("stdDirichletBnd2d")
-	
-	problem["Poisson"].configs = {}
-	problem["Poisson"].configs[1] = {["epsx"]= 1.0, ["epsy"]= 1.0}
-	problem["Poisson"].configs[2] = {["epsx"]= 1.0, ["epsy"]= 1e-1}
-	problem["Poisson"].configs[3] = {["epsx"]= 1.0, ["epsy"]= 0.075}
-	problem["Poisson"].configs[4] = {["epsx"]= 1.0, ["epsy"]= 5e-2}
-	problem["Poisson"].configs[5] = {["epsx"]= 1.0, ["epsy"]= 2e-2}
-	problem["Poisson"].configs[6] = {["epsx"]= 1.0, ["epsy"]= 1e-2}
-	problem["Poisson"].configs[7] = {["epsx"]= 1.0, ["epsy"]= 5e-3}
-	problem["Poisson"].configs[8] = {["epsx"]= 1.0, ["epsy"]= 1e-3}
-	problem["Poisson"].configs[9] = {["epsx"]= 1.0, ["epsy"]= 5e-4}
-	problem["Poisson"].configs[10] = {["epsx"]= 1.0, ["epsy"]= 1e-4}
-	problem["Poisson"].configs[11] = {["epsx"]= 1.0, ["epsy"]= 1e-5}
-	problem["Poisson"].configs[12] = {["epsx"]= 1.0, ["epsy"]= 1e-6}
-	--problem["Poisson"].configs[8] = {["epsy"]= 1.0, ["epsx"]= 1e-1}
-	--problem["Poisson"].configs[9] = {["epsy"]= 1.0, ["epsx"]= 1e-2}
-	--problem["Poisson"].configs[10] = {["epsy"]= 1.0, ["epsx"]= 1e-3}
-	--problem["Poisson"].configs[11] = {["epsy"]= 1.0, ["epsx"]= 1e-4}
-	--problem["Poisson"].configs[12] = {["epsy"]= 1.0, ["epsx"]= 1e-5}
-	--problem["Poisson"].configs[13] = {["epsy"]= 1.0, ["epsx"]= 1e-6}
-end
-
--- Problem 2: Convection-diffusion (w/ anisotropy) 
-if false then
-	problem["ConvDiff"] = {}
-	problem["ConvDiff"].desc = "Problem 2: Convection-diffusion (w/ anisotropy)"
-	problem["ConvDiff"].diffusion = LuaUserMatrix("stdDiffTensor2d")
-	problem["ConvDiff"].velocity = LuaUserVector("constVelocityField2d")
-	problem["ConvDiff"].reaction = LuaUserNumber("zeroReaction2d")
-	problem["ConvDiff"].source = LuaUserNumber("stdSource2d")
-	problem["ConvDiff"].neumann = LuaCondUserNumber("stdNeumannBnd2d")
-	problem["ConvDiff"].dirichlet = LuaCondUserNumber("stdDirichletBnd2d")
-	
-	problem["ConvDiff"].configs = {}
-	problem["ConvDiff"].configs[1] = {["epsx"]= 1.0, ["epsy"]= 1.0}
-	problem["ConvDiff"].configs[2] = {["epsx"]= 1e-1, ["epsy"]= 1e-1}
-	problem["ConvDiff"].configs[3] = {["epsx"]= 1e-2, ["epsy"]= 1e-2}
-	problem["ConvDiff"].configs[4] = {["epsx"]= 1e-3, ["epsy"]= 1e-3}
-	problem["ConvDiff"].configs[5] = {["epsx"]= 1e-4, ["epsy"]= 1e-4}
-	problem["ConvDiff"].configs[6] = {["epsx"]= 1e-5, ["epsy"]= 1e-5}
-	problem["ConvDiff"].configs[7] = {["epsx"]= 1e-6, ["epsy"]= 1e-6}
-end
-
--- Problem 3: Recirculating flow (w/ anisotropy) 
-if false then
-	problem["Recirc"] = {}
-	problem["Recirc"].desc = "Problem 2: Recirculating flow (w/ anisotropy)"
-	problem["Recirc"].diffusion = LuaUserMatrix("stdDiffTensor2d")
-	problem["Recirc"].velocity = LuaUserVector("recirculatingVelocityField2d")
-	problem["Recirc"].reaction = LuaUserNumber("zeroReaction2d")
-	problem["Recirc"].source = LuaUserNumber("stdSource2d")
-	problem["Recirc"].neumann = LuaCondUserNumber("stdNeumannBnd2d")
-	problem["Recirc"].dirichlet = LuaCondUserNumber("stdDirichletBnd2d")
-	
-	problem["Recirc"].configs = {}
-	problem["Recirc"].configs[1] ={["epsx"]= 1.0, ["epsy"]= 1.0}
-	problem["Recirc"].configs[1] = {["epsx"]= 1.0, ["epsy"]= 1.0}
-	problem["Recirc"].configs[2] = {["epsx"]= 1e-1, ["epsy"]= 1e-1}
-	problem["Recirc"].configs[3] = {["epsx"]= 1e-2, ["epsy"]= 1e-2}
-	problem["Recirc"].configs[4] = {["epsx"]= 1e-3, ["epsy"]= 1e-3}
-	problem["Recirc"].configs[5] = {["epsx"]= 1e-4, ["epsy"]= 1e-4}
-	problem["Recirc"].configs[6] = {["epsx"]= 1e-5, ["epsy"]= 1e-5}
-	problem["Recirc"].configs[7] = {["epsx"]= 1e-6, ["epsy"]= 1e-6}
-end
-
--- Problem 4: Hedgehog diffusion (w/ anisotropy, four different subdomains) 
-if true then
-	problem["Hedgehog"] = {}
-	problem["Hedgehog"].desc = "Problem 4: Hedgehog-type Poisson's eqn. (w/ anisotropy)"
-	problem["Hedgehog"].diffusion = LuaUserMatrix("hedgehogDiffTensor2d")
-	problem["Hedgehog"].velocity = LuaUserVector("zeroVelocityField2d")
-	problem["Hedgehog"].reaction = LuaUserNumber("zeroReaction2d")
-	problem["Hedgehog"].source = LuaUserNumber("stdSource2d")
-	problem["Hedgehog"].neumann = LuaCondUserNumber("stdNeumannBnd2d")
-	problem["Hedgehog"].dirichlet = LuaCondUserNumber("stdDirichletBnd2d")
-	
-	problem["Hedgehog"].configs = {}
-	problem["Hedgehog"].configs[1] = {["epsx"]= 1.0, ["epsy"]= 1.0}
-	problem["Hedgehog"].configs[2] = {["epsx"]= 1e-1, ["epsy"]= 1e-1}
-	problem["Hedgehog"].configs[3] = {["epsx"]= 1e-2, ["epsy"]= 1e-2}
-	problem["Hedgehog"].configs[4] = {["epsx"]= 1e-3, ["epsy"]= 1e-3}
-	problem["Hedgehog"].configs[5] = {["epsx"]= 1e-4, ["epsy"]= 1e-4}
-	problem["Hedgehog"].configs[6] = {["epsx"]= 1e-5, ["epsy"]= 1e-5}
-	problem["Hedgehog"].configs[7] = {["epsx"]= 1e-6, ["epsy"]= 1e-6}
-end
-
--- Problem 5: Isolator problem (embeded squarent subdomains) 
-if true then
-	problem["Isolator"] = {}
-	problem["Isolator"].desc = "Problem 4: Isolator problem (jumping coefficient)"
-	problem["Isolator"].diffusion = LuaUserMatrix("jumpDiffTensor2d")
-	problem["Isolator"].velocity = LuaUserVector("zeroVelocityField2d")
-	problem["Isolator"].reaction = LuaUserNumber("zeroReaction2d")
-	problem["Isolator"].source = LuaUserNumber("stdSource2d")
-	problem["Isolator"].neumann = LuaCondUserNumber("stdNeumannBnd2d")
-	problem["Isolator"].dirichlet = LuaCondUserNumber("stdDirichletBnd2d")
-	
-	problem["Isolator"].configs = {}
-	problem["Isolator"].configs[1] = {["epsx"]= 1e+6, ["epsy"]= 1e+6}
-	problem["Isolator"].configs[2] = {["epsx"]= 1e+4, ["epsy"]= 1e+4}
-	problem["Isolator"].configs[3] = {["epsx"]= 1e+2, ["epsy"]= 1e+2}
-	problem["Isolator"].configs[4] = {["epsx"]= 1e+1, ["epsy"]= 1e+1}
-	problem["Isolator"].configs[5] = {["epsx"]= 1.0, ["epsy"]= 1.0}
-	problem["Isolator"].configs[6] = {["epsx"]= 1e-1, ["epsy"]= 1e-1}
-	problem["Isolator"].configs[7] = {["epsx"]= 1e-2, ["epsy"]= 1e-2}
-	problem["Isolator"].configs[8] = {["epsx"]= 1e-4, ["epsy"]= 1e-4}
-	problem["Isolator"].configs[9] = {["epsx"]= 1e-6, ["epsy"]= 1e-6}
-end
-
 
 
 --------------------------------------------------------------------------------
@@ -629,64 +268,27 @@ end
 --------------------------------------------------------------------------------	
 
 -- for each of the problems
-for myname,myproblem in pairs(problem) do
+for myname,myproblem in pairs(amgTeaching.problem) do
 	
 	
 	
-	elemDisc = CreateProblemDependentElemDisc(myproblem, dim)
-	print ("Running "..myproblem.desc.." ["..myname.."]")
+	elemDisc = amgTeaching.CreateProblemDependentElemDisc(myproblem, dim)
+	print ("\n---------------------------------------------------------------------------------")
+	print("Running "..myproblem.desc.." ["..myname.."]")
+	print ("---------------------------------------------------------------------------------")
 	--util.PrintTable(myproblem)
 	
 	
 	-- for each configuration
-	print(myproblem.configs)
+	--print(myproblem.configs)
 	for key,config in pairs(myproblem.configs) do
-		print ("Running parameter set "..key..":")
+		print ("----- Running parameter set "..key..": -----")
 		print ("  epsx="..config.epsx..", epsy="..config.epsy)
 		epsx = config.epsx
 		epsy = config.epsy
 		
-		
-		-----------------------------------------------------------------
-		--  Setup Neumann Boundary
-		-----------------------------------------------------------------
-		
-		--neumannDisc = NeumannBoundary("c")
-		--neumannDisc:add(neumann, "NeumannBoundary", "Inner")
-		
-		-----------------------------------------------------------------
-		--  Setup Dirichlet Boundary
-		-----------------------------------------------------------------
-		
-		dirichletBND = DirichletBoundary()
-		dirichletBND:add(myproblem.dirichlet, "c", "DirichletBoundary")
-		
-		-------------------------------------------
-		--  Setup Domain Discretization
-		-------------------------------------------
-		
-		domainDisc = DomainDiscretization(approxSpace)
-		domainDisc:add(elemDisc)
-		--domainDisc:add(neumannDisc)
-		domainDisc:add(dirichletBND)
-		
-		--------------------------------------------------------------------------------
-		--  Algebra
-		--------------------------------------------------------------------------------
-		print ("Setting up Algebra Solver")
-		
-		-- create operator from discretization
-		linOp = AssembledLinearOperator()
-		linOp:set_discretization(domainDisc)
-		
-		-- get grid function
-		u = GridFunction(approxSpace)
-		b = GridFunction(approxSpace)
-		
-		-- debug writer
-		dbgWriter = GridFunctionDebugWriter(approxSpace)
-		dbgWriter:set_vtk_output(false)
-		
+		domainDisc = amgTeaching.SetUpProblem(approxSpace, myproblem, elemDisc)
+		A, x, b = amgTeaching.AssembleAxb(approxSpace, domainDisc)
 
 		-- update GMG ---
 		-----------------
@@ -697,53 +299,40 @@ for myname,myproblem in pairs(problem) do
 		--  to get separate profiling for assemble and solve
 		--------------------------------------------------------------------------------
 		
-		-- 0. Reset start solution
-		u:set(0.0)
-		
-		-- 1. init operator
-		print("Init operator (i.e. assemble matrix).")
-		if AssembleLinearOperatorRhsAndSolution(linOp, u, b) == false then 
-		print("Could not assemble operator"); exit(); 
-		end
-		
 		-- 1.b write matrix for test purpose
 		if verbosity >= 1 then
-		SaveMatrixForConnectionViewer(u, linOp, myname.."P"..key.."Stiffness.mat")
-		SaveVectorForConnectionViewer(b, myname.."P"..key.."Rhs.vec")
+			SaveMatrixForConnectionViewer(u, A, myname.."P"..key.."Stiffness.mat")
+			SaveVectorForConnectionViewer(b, myname.."P"..key.."Rhs.vec")
 		end
 		
 		-- 2. apply solver
-		print("Apply solver.")
-		if ApplyLinearSolver(linOp, u, b, solver) == false then
-		print("Could not apply linear solver.");
-		end
+		--print("Apply solver.")
+		ApplyLinearSolver(A, u, b, solver)
+		
+		print(" step: "..convCheckSolver:step())
+		print(" avg_rate: "..convCheckSolver:avg_rate())
+		print(" last reduction: "..convCheckSmoother:previous_defect() / convCheckSmoother:defect())
 		
 		if verbosity >= 1 then
-		WriteGridFunctionToVTK(u, myname.."P"..key.."Solve"..smoother.name)
+			WriteGridFunctionToVTK(u, myname.."P"..key.."Solve"..smoother.name)
 		end
 	
 		
 		--------------------------------------------------------------------------------
 		--  Apply smoother - this generates algebraically smooth errors
 		--------------------------------------------------------------------------------
-		
-		-- 1. Init operator and modify right hand side
+
+		-- set u to random (except dirichlet point), and b = 0		
 		u:set_random(-1.0, 1.0)
-		print("Init operator (i.e. assemble matrix).")
-		if AssembleLinearOperatorRhsAndSolution(linOp, u, b) == false then 
-		print("Could not assemble operator"); exit(); 
-		end
+		domainDisc:adjust_solution(u)
 		b:set(0.0)
 		
 		-- 2. apply solver
-		print("Apply solver.")
-		if ApplyLinearSolver(linOp, u, b, smoother.solver) == false then
-		print("Could not apply linear solver.");
-		end
+		ApplyLinearSolver(A, u, b, smoother.solver)
 		
 		
 		if verbosity >= 1 then
-		WriteGridFunctionToVTK(u, myname.."P"..key.."Smooth"..smoother.name)
+			WriteGridFunctionToVTK(u, myname.."P"..key.."Smooth"..smoother.name)
 		end
 	
 	end -- for each configuration
@@ -754,19 +343,3 @@ end -- for each problem
 --------------------------------------------------------------------------------
 --  Print Profiling
 --------------------------------------------------------------------------------
-
--- check if profiler is available
-if GetProfilerAvailable() == true then
--- get node
-pn = GetProfileNode("main")
---    pn2 = GetProfileNode("GMG_lmgc")
--- check if node is valid
-if pn:is_valid() then
-print(pn:call_tree())
---        print(pn2:total_time_sorted())
-else
-print("main is not known to the profiler.")
-end
-else
-print("Profiler not available.")
-end 
