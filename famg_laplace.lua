@@ -50,7 +50,7 @@ A, u, b = amgdisc.AssembleAxb(approxSpace, domainDisc)
 
 --	ScaleDomain(dom, MakeVec(0,0,0), MakeVec(1/stretchX, 1/stretchY, 1.0))
 
-if numRefs > 0 then
+if numRefs >= 0 then
 	gmg = GeometricMultiGrid(approxSpace)
 	gmg:set_discretization(domainDisc)
 	gmg:set_base_level(0)
@@ -80,7 +80,7 @@ if numRefs > 0 then
 	print(gmgRes)
 	
 	if util.HasParamOption("-writeMatrices") then
-		SaveVectorForConnectionViewer(gmgRes.u, "resGMG.vec")
+		SaveVectorForConnectionViewer(gmgRes.u, "resGMG.vec")		
 	end	
 end
 
@@ -157,7 +157,8 @@ amg:set_verbose(5)
 
 	
 --SetDebugLevel(debugID.AMG.Agglomeration, 5)
-amg:set_min_nodes_on_one_processor(1) amg:set_preferred_nodes_on_one_processor(1)
+amg:set_min_nodes_on_one_processor(400)
+amg:set_preferred_nodes_on_one_processor(600)
 --amg:set_debug_write_all_vectors(true)
 
 if util.HasParamOption("-posamg") then
