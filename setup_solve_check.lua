@@ -72,9 +72,9 @@ function solve_amg(smoother, numSmooths, convCheck, name)
 	
 	print(name..": "..numSmooths.."x "..smoother:config_string())
 	
-	local amgTestVcycle = true
-	local amgTestWcycle = true
-	local amgTest2cycle = true
+	--local amgTestVcycle = true
+	--local amgTestWcycle = true
+	--local amgTest2cycle = true
 	local ret = {}	
 	--print("CG, "..name)  			ret.cg = solve_lin(BiCGStab(), amg, "CG("..name..")")
 	if amgTestVcycle then
