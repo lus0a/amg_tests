@@ -207,13 +207,28 @@ function amgdisc.AssembleAxb(approxSpace, domainDisc)
 end
 
 function LoadAMGTeaching(approxSpace, boundaries)
+	-- translate -1, 1 to 0, 1
+	TranslateDomain(dom, 1, 1, 1)
+	ScaleDomain(dom, 0.5, 0.5, 0.5)
 	myproblem = util.GetParamFromList("-amgTeaching", "?", amgTeaching.problem)
 	print(myproblem)
 	elemDisc = amgTeaching.CreateProblemDependentElemDisc(myproblem, 2)
 	return amgTeaching.SetUpProblem(approxSpace, myproblem, elemDisc, boundaries)
 end
 
-
+--! amgdisc.CreateApproxSpaceAndDisc
+--! Optionen:
+--! -LE : Linear Elasticity
+--!       -nu 0.3  -leE  20.6316   ODER -isolator
+--! sonst std:
+--! -amgEps 0.1
+--! -isolator2 (isolator Ÿber callbacks=
+--! -lognormal, siehe amgdisc.CreateLognormalDisc
+--! -amgTeaching problem 
+--! 	problem: one of Poisson, ConvDiff, Recirc, Hedgehog, Isolator
+--!		additional parameters: -epsx, -epsy, -uvel, -vvel, -alpha 
+--!     (problem specific, see amgteaching_problems.lua)
+--!     
 function amgdisc.CreateApproxSpaceAndDisc()
 	if util.HasParamOption("-LE") then
 		local le=nil
@@ -243,6 +258,18 @@ function amgdisc.CreateApproxSpaceAndDisc()
 	end
 end
 
+--! amgdisc.LoadStdDomain2d
+--! Optionen:
+--! -cembalo: cembalo/cembalo_platte_2d_sci_1.ugx
+--! -gitarre: gitarre/gitarre2d.ugx
+--! -3k : 3k nodes unstructured grid (amgtests/unstructured_33.ugx)
+--! -33k : 33k nodes unstructured grid (amgtests/unstructured_33k.ugx)
+--! -beam: beamlong.ugx
+--! -isolator: amgtests/unit_square_isolator.ugx
+--! -squareUG : 141 unstructured. amgtests/unit_square_unstructured.ugx
+--!
+--! default: 3x3 structured grid quads: unit_square/unit_square_quads_2x2.ugx
+
 function amgdisc.LoadStdDomain2d()
 	requiredSubsets = {"Inner", "Boundary"}
 	
@@ -259,6 +286,18 @@ function amgdisc.LoadStdDomain2d()
 		gridName = util.GetParam("-grid", "cembalo/cembalo_platte_2d_sci_1.ugx")
 		requiredSubsets = requiredSubsets2
 		boundaries = boundaries2
+	elseif util.HasParamOption("-344") then
+		gridName = util.GetParam("-grid", "amgtests/unstructured_344.ugx")
+		requiredSubsets = requiredSubsets2
+		boundaries = boundaries2
+	elseif util.HasParamOption("-803") then
+		gridName = util.GetParam("-grid", "amgtests/unstructured_803.ugx")
+		requiredSubsets = requiredSubsets2
+		boundaries = boundaries2
+	elseif util.HasParamOption("-3k") then
+		gridName = util.GetParam("-grid", "amgtests/unstructured_3k.ugx")
+		requiredSubsets = requiredSubsets4
+		boundaries = boundaries4
 	elseif util.HasParamOption("-33k") then
 		gridName = util.GetParam("-grid", "amgtests/unstructured_33k.ugx") -- -???
 		requiredSubsets = requiredSubsets4
@@ -266,11 +305,7 @@ function amgdisc.LoadStdDomain2d()
 	elseif util.HasParamOption("-gitarre") then
 		gridName = util.GetParam("-grid", "gitarre/gitarre2d.ugx") -- -???
 		requiredSubsets = {"Inner", "OuterZargen", "OuterSchallloch"}
-		boundaries = {"OuterZargen", "OuterSchallloch"}
-	elseif util.HasParamOption("-3k") then
-		gridName = util.GetParam("-grid", "amgtests/unstructured_3k.ugx")
-		requiredSubsets = requiredSubsets4
-		boundaries = boundaries4
+		boundaries = {"OuterZargen", "OuterSchallloch"}	
 	elseif util.HasParamOption("-beam") then
 		gridName = util.GetParam("-grid", "beamlong.ugx")
 		requiredSubsets = requiredSubsets2
