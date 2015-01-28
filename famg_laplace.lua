@@ -182,6 +182,9 @@ print("Solve...")
 --solve_random(solver, approxSpace)
 
 amg:set_one_init(true)
+amgTestVcycle = true
+--amgTestWcycle = true
+--amgTest2cycle = true
 
 if util.HasParamOption("-beam") then
 	amg:set_nr_of_preiterations_at_check(20)
@@ -196,6 +199,7 @@ elseif true then
 	--sgsRes = test_smoothsteps(SymmetricGaussSeidel(), convCheck, {1, 2, 4, 8, 16, 32, 64, 128})
 	--sgsRes = test_smoothsteps(SymmetricGaussSeidel(), convCheck, {1, 2, 4, 8, 16})
 	--sgsRes = test_smoothsteps(SymmetricGaussSeidel(), convCheck, {1, 2, 4})
+	
 	sgsRes = test_smoothsteps(SymmetricGaussSeidel(), convCheck, {4})
 	--EconvCheck = EnergyConvCheck(50, 1e-20, 1e-20)
 	--EconvCheck:set_linear_operator(A)
@@ -230,7 +234,7 @@ end
 
 if ProcRank() == 0 then
 	stats = {
-	
+	{ "index", util.GetParam("-index", 0) },
 	{ "procs", NumProcs() },
 	--{ "numPreRefs", numPreRefs},
 	{ "numRefs", numRefs },
@@ -238,6 +242,11 @@ if ProcRank() == 0 then
 	{ "gridName", gridName},
 	{ "main [ms]", GetProfileNode("main"):get_avg_total_time_ms()},
 	{ "perform_refinement [ms]", GetProfileNode("perform_refinement"):get_avg_total_time_ms()},
+	{ "amg_base_preprocess [ms]", GetProfileNode("amg_base_preprocess"):get_avg_total_time_ms()},
+	{ "create_galerkin_product [ms]", GetProfileNode("create_galerkin_product"):get_avg_total_time_ms()},
+	
+	{ "gridCompl", amg:get_grid_complexity()},
+	{ "opCompl", amg:get_operator_complexity()},
 	 
 	{ "date", os.date("y%Ym%md%d") },
 	{ "SVN Revision", GetSVNRevision()},
