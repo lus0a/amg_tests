@@ -50,7 +50,7 @@ A, u, b = amgdisc.AssembleAxb(approxSpace, domainDisc)
 
 --	ScaleDomain(dom, MakeVec(0,0,0), MakeVec(1/stretchX, 1/stretchY, 1.0))
 
-if numRefs >= 0 then
+if false and numRefs >= 0 then
 	gmg = GeometricMultiGrid(approxSpace)
 	gmg:set_discretization(domainDisc)
 	gmg:set_base_level(0)
