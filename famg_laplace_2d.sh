@@ -5,10 +5,16 @@ UGSUBMITARGS=" --- $UGCALL"
 
 index=0
 
-for numProcs in 1 2 4 8 16 32 64 128 256 512
-	for numRefs in 4 5 6 7 8 9 10
+# 4 1024
+# 5 4225
+# 6 16441
+# 7 65536
+
+for numProcs in 1 2 4 8 16 32 64 128 256
+	for numRefs in 5 6 7 8 9 10
 	do 
-		ugsubmit 1 $UGSUBMITARGS -numRefs $numRefs -index $index
+		ugsubmit 1 $UGSUBMITARGS -numRefs $numRefs -numPreRefs 5 -index $index
 		index=$((index+1))
 	done 
+done
 
