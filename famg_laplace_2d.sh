@@ -13,7 +13,7 @@ index=0
 for numProcs in 1 2 4 8 16 32 64 128 256
 	for numRefs in 5 6 7 8 9 10
 	do 
-		ugsubmit 1 $UGSUBMITARGS -numRefs $numRefs -numPreRefs 5 -index $index
+		ugsubmit $numProcs $UGSUBMITARGS -numRefs $numRefs -numPreRefs 5 -index $index
 		index=$((index+1))
 	done 
 done
