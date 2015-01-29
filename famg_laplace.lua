@@ -159,6 +159,8 @@ amg:set_verbose(5)
 --SetDebugLevel(debugID.AMG.Agglomeration, 5)
 amg:set_min_nodes_on_one_processor(400)
 amg:set_preferred_nodes_on_one_processor(600)
+--amg:set_min_nodes_on_one_processor(1)
+
 --amg:set_debug_write_all_vectors(true)
 
 if util.HasParamOption("-posamg") then
@@ -183,8 +185,8 @@ print("Solve...")
 
 amg:set_one_init(true)
 amgTestVcycle = true
---amgTestWcycle = true
---amgTest2cycle = true
+amgTestWcycle = true
+amgTest2cycle = true
 
 if util.HasParamOption("-beam") then
 	amg:set_nr_of_preiterations_at_check(20)
@@ -207,9 +209,11 @@ elseif true then
 	--jacRes = test_smoothsteps(Jacobi(0.5), convCheck, {1, 2, 4, 8, 16})
 	
 	--jacRes = test_smoothsteps(Jacobi(0.6), {1, 2, 4, 8})
+	
 	if util.HasParamOption("-writeMatrices") then
 		for i, v in pairs(sgsRes) do
-			if sgsRes[i].linV then SaveVectorForConnectionViewer(sgsRes[i].linV.u, "res"..i..".vec") end			
+			if sgsRes[i].linV then SaveVectorForConnectionViewer(sgsRes[i].linV.u, "res"..i..".vec") end
+			if sgsRes[i].linW then SaveVectorForConnectionViewer(sgsRes[i].linW.u, "resW"..i..".vec") end			
 			if jacRes then SaveVectorForConnectionViewer(jacRes[i].linV.u, "jacres"..i..".vec") end
 		end
 	end
@@ -278,7 +282,8 @@ else amg:check_vector(TestvectorsLinear3d(), "tvLin") end
 
 
 if false and NumProcs() == 1 then
-	amg:set_preiterations_mimum_defect_at_check(1e-30)	
+--if true then
+	amg:set_preiterations_mimum_defect_at_check(1e-15)	
 	amg:set_nr_of_preiterations_at_check(20)
 	amg:set_num_postsmooth(4)
 	amg:set_num_presmooth(4)
