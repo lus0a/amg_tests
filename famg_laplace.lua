@@ -202,7 +202,7 @@ elseif true then
 	--sgsRes = test_smoothsteps(SymmetricGaussSeidel(), convCheck, {1, 2, 4, 8, 16})
 	--sgsRes = test_smoothsteps(SymmetricGaussSeidel(), convCheck, {1, 2, 4})
 	
-	sgsRes = test_smoothsteps(SymmetricGaussSeidel(), convCheck, {4})
+	sgsRes = test_smoothsteps(SymmetricGaussSeidel(), convCheck, {2})
 	--EconvCheck = EnergyConvCheck(50, 1e-20, 1e-20)
 	--EconvCheck:set_linear_operator(A)
 	--sgsRes = test_smoothsteps(SymmetricGaussSeidel(), EconvCheck, {2})
