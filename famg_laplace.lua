@@ -148,7 +148,7 @@ if baseEps > 0.0 then
 	amg:set_base_solver(baseSolver)
 end 
 
-convCheck = ConvCheck(30, 1e-20, 1e-20)
+convCheck = ConvCheck(50, 1e-16, 1e-16)
 --convCheck:set_linear_operator(A)
 
 --SetDebugLevel(debugID.AMG, 5)
@@ -180,7 +180,7 @@ lis=amg:level_information_str()
 	print(lis)
 print("Solve...")
 
-
+--GetLogAssistant():set_output_process(0)
 --solve_random(solver, approxSpace)
 
 amg:set_one_init(true)
