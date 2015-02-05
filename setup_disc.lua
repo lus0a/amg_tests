@@ -270,6 +270,7 @@ end
 --!
 --! default: 3x3 structured grid quads: unit_square/unit_square_quads_2x2.ugx
 
+shortGridName = "unknown"
 function amgdisc.LoadStdDomain2d()
 	requiredSubsets = {"Inner", "Boundary"}
 	
@@ -283,18 +284,22 @@ function amgdisc.LoadStdDomain2d()
 	local boundaries2 = {"Boundary"}
 	
 	if util.HasParamOption("-cembalo") then
+		shortGridName = "cembalo"
 		gridName = util.GetParam("-grid", "cembalo/cembalo_platte_2d_sci_1.ugx")
 		requiredSubsets = requiredSubsets2
 		boundaries = boundaries2
 	elseif util.HasParamOption("-344") then
+		shortGridName = "344"
 		gridName = util.GetParam("-grid", "amgtests/unstructured_344.ugx")
 		requiredSubsets = requiredSubsets2
 		boundaries = boundaries2
 	elseif util.HasParamOption("-803") then
+		shortGridName = "803"
 		gridName = util.GetParam("-grid", "amgtests/unstructured_803.ugx")
 		requiredSubsets = requiredSubsets2
 		boundaries = boundaries2
 	elseif util.HasParamOption("-3k") then
+		shortGridName = "3k"
 		gridName = util.GetParam("-grid", "amgtests/unstructured_3k.ugx")
 		requiredSubsets = requiredSubsets4
 		boundaries = boundaries4
@@ -303,6 +308,7 @@ function amgdisc.LoadStdDomain2d()
 		requiredSubsets = requiredSubsets4
 		boundaries = boundaries4		
 	elseif util.HasParamOption("-gitarre") then
+		shortGridName = "gitarre"
 		gridName = util.GetParam("-grid", "gitarre/gitarre2d.ugx") -- -???
 		requiredSubsets = {"Inner", "OuterZargen", "OuterSchallloch"}
 		boundaries = {"OuterZargen", "OuterSchallloch"}	
@@ -311,14 +317,17 @@ function amgdisc.LoadStdDomain2d()
 		requiredSubsets = requiredSubsets2
 		boundaries = boundaries2
 	elseif util.HasParamOption("-isolator") then
+		shortGridName = "isolator"
 		gridName = "amgtests/unit_square_isolator.ugx"
 		requiredSubsets = requiredSubsets2
 		boundaries = boundaries2
 	elseif util.HasParamOption("-squareUG") then
+		shortGridName = "squareUG"
 		gridName = "amgtests/unit_square_unstructured.ugx"
 		requiredSubsets = requiredSubsets4
 		boundaries = boundaries4
 	else
+		shortGridName = "unitSqQ2x2"
 		gridName = util.GetParam("-grid", "unit_square/unit_square_quads_2x2.ugx")
 		requiredSubsets = requiredSubsets2
 		boundaries = boundaries2

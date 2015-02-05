@@ -138,7 +138,7 @@ function amgsetup.SetFAMGCommandLineParameters(amg, p)
 
 end
  
- 
+ --function amgsetup.getAMGStats(amg) return {} end
 function amgsetup.getAMGStats(amg)
 	return 
 	{ { "ndofs", amg:get_level_information(0):get_nr_of_nodes() },
@@ -155,4 +155,4 @@ function amgsetup.getAMGStats(amg)
 	{ "tv", util.GetParam("-amgTV", "const") }
 	}	
 end
- function amgsetup.getAMGStats(amg) return {} end
+ 

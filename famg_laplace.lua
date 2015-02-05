@@ -127,14 +127,18 @@ amg:set_xc_calc_interpolation_routine(3)
 -- unterschied sichtbar bei  ugshell -ex amg/famg_laplace.lua -33k -numRefs 0 -amgMaxLevels 5 -writeMatrices -amgTV lin -amgXC
 --amg:set_xc_calc_interpolation_routine(4)
 
-amg:set_deficit_solve_tolerance(1e-20)
+if util.HasParamOption("-LE") then
+	amg:set_deficit_solve_tolerance(1e-8)
+else
+	amg:set_deficit_solve_tolerance(1e-12)
+end
 
 
 --SetDebugLevel(debugID.AMG.Coarsening, 5)
 --SetDebugLevel(debugID.AMG, 5)
 amg:set_XC_LE_griebel(true)
 
---amg:add_watchnode(0, 1453)
+--amg:add_watchnode(0, 42087)
 --amg:add_watchnode(0, 175)
 
 
@@ -157,8 +161,8 @@ amg:set_verbose(5)
 
 	
 --SetDebugLevel(debugID.AMG.Agglomeration, 5)
-amg:set_min_nodes_on_one_processor(400)
-amg:set_preferred_nodes_on_one_processor(600)
+amg:set_min_nodes_on_one_processor(100)
+amg:set_preferred_nodes_on_one_processor(1000)
 --amg:set_min_nodes_on_one_processor(1)
 
 --amg:set_debug_write_all_vectors(true)
@@ -235,36 +239,47 @@ if true then
 	print("done\n")
 end
 
+function appendParsedCommandLine(p, opt)
+	for i, v in pairs(opt) do
+		if util.args[v] == nil then
+			table.insert(p, {v, "unknown"})
+		else
+			table.insert(p, {v, util.args[v].value or "null"})
+		end
+	end
+end
 
 if ProcRank() == 0 then
 	stats = {
-	{ "index", util.GetParam("-index", 0) },
-	{ "procs", NumProcs() },
-	--{ "numPreRefs", numPreRefs},
-	{ "numRefs", numRefs },
-	{ "dim", dim},
-	{ "gridName", gridName},
-	{ "main [ms]", GetProfileNode("main"):get_avg_total_time_ms()},
-	{ "perform_refinement [ms]", GetProfileNode("perform_refinement"):get_avg_total_time_ms()},
-	{ "amg_base_preprocess [ms]", GetProfileNode("amg_base_preprocess"):get_avg_total_time_ms()},
-	{ "create_galerkin_product [ms]", GetProfileNode("create_galerkin_product"):get_avg_total_time_ms()},
-	
-	{ "gridCompl", amg:get_grid_complexity()},
-	{ "opCompl", amg:get_operator_complexity()},
-	 
-	{ "date", os.date("y%Ym%md%d") },
-	{ "SVN Revision", GetSVNRevision()},
-	{"host", GetBuildHostname()},
-	{"commandline", util.GetCommandLine() }
+		{ "index", util.GetParam("-index", 0) },
+		{ "procs", NumProcs() },
+		--{ "numPreRefs", numPreRefs},
+		{ "numRefs", numRefs },
+		{ "dim", dim},
+		{ "gridName", gridName},
+		{ "shortGridName", shortGridName},
+		{ "main [ms]", GetProfileNode("main"):get_avg_total_time_ms()},
+		{ "perform_refinement [ms]", GetProfileNode("perform_refinement"):get_avg_total_time_ms()},
+		{ "create_galerkin_product [ms]", GetProfileNode("create_galerkin_product"):get_avg_total_time_ms()},
+		
+		--{ "amg_base_preprocess [ms]", GetProfileNode("amg_base_preprocess"):get_avg_total_time_ms()},
+		--{ "gridCompl", amg:get_grid_complexity()},
+		--{ "opCompl", amg:get_operator_complexity()},
+		 
+		{ "date", os.date("y%Ym%md%d") },
+		{ "SVN Revision", GetSVNRevision()},
+		{"host", GetBuildHostname()},
+		{"commandline", util.GetCommandLine() },
 	}
 	
-	table.append(stats, amgsetup.getAMGStats(amg))
 	 
 	if gmgRes ~= nil then util.flattenTable(gmgRes, "gmg", stats) end
 	if sgsRes ~= nil then util.flattenTable(sgsRes, "sgs", stats) end
 	if jacRes ~= nil then util.flattenTable(jacRes, "jac", stats) end
 	if bgsRes ~= nil then util.flattenTable(bgsRes, "bgs", stats) end	
 	
+	appendParsedCommandLine(stats, {"-amgTV", "-amgXC", "-amgMaxNodesForBase", "-amgN2Interpolation", "-stretchX", "-stretchY", "-distortDomain"})
+	table.append(stats, amgsetup.getAMGStats(amg))
 	util.flattenTable(getAMGLevelTable(amg), "level", stats)
 	
 	util.printStats(stats)
