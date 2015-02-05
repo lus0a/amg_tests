@@ -1,7 +1,7 @@
 mypath=`pwd`
 
 CALL="ugshell -ex amg/famg_laplace.lua -outfile $mypath/resUG.txt" 
-CALL="echo $CALL"
+#CALL="echo $CALL"
 CALL="ugsubmit 1 --- $CALL"
 
 index=0
