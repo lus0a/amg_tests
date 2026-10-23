@@ -2,3 +2,8 @@
 .project
 .tags
 .tags_sorted_by_file
+
+# Generated logs and VTK output
+*.log
+*.vtu
+amgtestvtk/
