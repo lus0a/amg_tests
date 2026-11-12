@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<grid name="defGrid">
+	<vertices coords="3">0 0 0 300 0 0 600 0 0 0 75 0 300 75 0 600 75 0 0 150 0 300 150 0 600 150 0</vertices>
+	<edges>0 1 1 2 3 4 4 5 6 7 7 8 0 3 3 6 1 4 4 7 2 5 5 8</edges>
+	<quadrilaterals>0 1 4 3 1 2 5 4 3 4 7 6 4 5 8 7</quadrilaterals>
+	<subset_handler name="defSH">
+		<subset name="Inner" color="1 0 0 1" state="0">
+			<vertices>4</vertices>
+			<edges>2 3 8 9</edges>
+			<faces>0 1 2 3</faces>
+		</subset>
+		<subset name="LeftRightBnd" color="0 1 0 1" state="0">
+			<vertices>3 6 5 8</vertices>
+			<edges>6 7 10 11</edges>
+		</subset>
+		<subset name="TopBnd" color="0 1 0 1" state="0">
+			<vertices>7</vertices>
+			<edges>4 5</edges>
+		</subset>
+		<subset name="TopCorners" color="0 0 1 1" state="262144">
+			<vertices>6 8</vertices>
+		</subset>
+		<subset name="BottomBnd" color="1 0 1 1" state="0">
+			<vertices>0 1 2</vertices>
+			<edges>0 1</edges>
+		</subset>
+	</subset_handler>
+	<projection_handler name="defPH" subset_handler="0">
+		<default type="default">0 0</default>
+	</projection_handler>
+</grid>
